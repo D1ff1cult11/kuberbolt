@@ -2,7 +2,7 @@
 name = "kuberbolt-client"
 version = "0.1.0"
 description = "Kuberbolt Python SDK for LangChain integration"
-authors = ["Your Name <you@example.com>"]
+authors = ["devlup labs"]
 readme = "README.md"
 packages = [{include = "kuberbolt"}]
 
