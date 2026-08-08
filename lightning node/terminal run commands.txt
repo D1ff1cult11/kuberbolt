@@ -1,0 +1,21 @@
+terminal run commands for lightning node
+
+-->download all the images from docker
+docker compose up -d
+
+-->running the program
+go run main.go
+
+-->creating invoice
+docker exec -i kuberbolt-lnd2 lncli --network=regtest addinvoice --amt=250 --memo="Test 250 sat payment"
+
+-->preparing the invoice
+docker exec -i kuberbolt-lnd1 lncli --network=regtest payinvoice --force <PASTE_PAYMENT_REQUEST_HERE>
+
+-->verification
+docker exec -i kuberbolt-lnd1 lncli --network=regtest channelbalance
+docker exec -i kuberbolt-lnd2 lncli --network=regtest channelbalance
+
+-->close
+docker compose down -v
+
