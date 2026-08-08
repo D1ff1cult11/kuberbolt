@@ -40,7 +40,7 @@ docker run --rm -v $(pwd):/app -w /app golang:1.21 go run main.go
 ```json
 {
   "user1_node": {
-    "alias": "lnd-user1",
+    "alias": "User1_Alice",
     "pubkey": "<User 1 PubKey>",
     "p2p_address": "<User 1 PubKey>@kuberbolt-lnd1:9735",
     "grpc_endpoint": "localhost:10009",
@@ -49,7 +49,7 @@ docker run --rm -v $(pwd):/app -w /app golang:1.21 go run main.go
     "tls_cert_path": "./lnd1_data/tls.cert"
   },
   "user2_node": {
-    "alias": "lnd-user2",
+    "alias": "User2_Bob",
     "pubkey": "<User 2 PubKey>",
     "p2p_address": "<User 2 PubKey>@kuberbolt-lnd2:9735",
     "grpc_endpoint": "localhost:10010",
@@ -59,7 +59,7 @@ docker run --rm -v $(pwd):/app -w /app golang:1.21 go run main.go
   },
   "test_channel_params": {
     "funding_amount_sats": 100000,
-    "push_satellites": 1000,
+    "push_satoshis": 1000,
     "target_conf": 1
   }
 }

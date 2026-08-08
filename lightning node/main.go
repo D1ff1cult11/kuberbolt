@@ -22,7 +22,7 @@ type NodeConfig struct {
 
 type ChannelParams struct {
 	FundingAmountSats int64 `json:"funding_amount_sats"`
-	PushSatellites    int64 `json:"push_satellites"`
+	PushSatoshis      int64 `json:"push_satoshis"`
 	TargetConf        int   `json:"target_conf"`
 }
 
@@ -98,14 +98,14 @@ func main() {
 	} else {
 		data = TestData{
 			User1Node: NodeConfig{
-				Alias:        "lnd-user1",
+				Alias:        "User1_Alice",
 				P2PAddress:   "kuberbolt-lnd1:9735",
 				GRPCEndpoint: "localhost:10009",
 				RESTEndpoint: "https://localhost:8080",
 				TLSCertPath:  "./lnd1_data/tls.cert",
 			},
 			User2Node: NodeConfig{
-				Alias:        "lnd-user2",
+				Alias:        "User2_Bob",
 				P2PAddress:   "kuberbolt-lnd2:9735",
 				GRPCEndpoint: "localhost:10010",
 				RESTEndpoint: "https://localhost:8081",
@@ -113,7 +113,7 @@ func main() {
 			},
 			TestChannelParams: ChannelParams{
 				FundingAmountSats: 100000,
-				PushSatellites:    1000,
+				PushSatoshis:      1000,
 				TargetConf:        1,
 			},
 		}
@@ -197,10 +197,10 @@ func main() {
 
 	// 6. Open Channel
 	fmt.Printf("[*] Opening channel (Capacity: %d sats, Push: %d sats)...\n",
-		data.TestChannelParams.FundingAmountSats, data.TestChannelParams.PushSatellites)
+		data.TestChannelParams.FundingAmountSats, data.TestChannelParams.PushSatoshis)
 
 	openCmd := fmt.Sprintf("openchannel --node_key=%s --connect=kuberbolt-lnd2:9735 --local_amt=%d --push_amt=%d",
-		pubkey2, data.TestChannelParams.FundingAmountSats, data.TestChannelParams.PushSatellites)
+		pubkey2, data.TestChannelParams.FundingAmountSats, data.TestChannelParams.PushSatoshis)
 	
 	_, err = execLND("lnd1", openCmd)
 	if err != nil {
