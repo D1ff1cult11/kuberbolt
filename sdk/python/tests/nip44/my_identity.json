@@ -1,0 +1,6 @@
+{
+  "secret_key_hex": "bc70ff700d6b129069a7ae5a16a58f064f45cdbe48cd13e976bb40efb377bc5a",
+  "secret_key_bech32": "nsec1h3c07uqddvffq6d84edpdfv0qe85tnd7frx386tkhdqwlvmhh3dqyvycfn",
+  "public_key_hex": "a8a4902db4089677777a9a92b425220109f4b4ec33a063ff949d14609b56b70f",
+  "public_key_bech32": "npub14zjfqtd5pzt8wam6n2ftgffzqyylfd8vxwsx8lu5n52xpx6kku8s3vmlsn"
+}
