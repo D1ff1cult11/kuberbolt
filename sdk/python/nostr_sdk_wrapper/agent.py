@@ -27,9 +27,21 @@ Typical usage:
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
+from typing import Literal
 
-from nostr_sdk import Client, Event, Keys, PublicKey, RelayStatus, RelayUrl
+from nostr_sdk import (
+    Client,
+    Event,
+    EventBuilder,
+    Keys,
+    Kind,
+    PublicKey,
+    RelayStatus,
+    RelayUrl,
+    Tag,
+)
 
 from . import discovery, handshake, identity
 from .discovery import TaggedEvent
@@ -78,6 +90,18 @@ class KuberboltAgent:
 
         return agent
 
+    @classmethod
+    async def from_keys(cls, keys: Keys, relay_urls: list[str],
+                        connect_wait_secs: float = 3.0) -> "KuberboltAgent":
+        """Construct a KuberboltAgent from an already-loaded Keys object,
+        connecting to the given relays without any disk I/O."""
+        client = Client()
+        for url in relay_urls:
+            await client.add_relay(RelayUrl.parse(url))
+        await client.connect()
+        await asyncio.sleep(connect_wait_secs)
+        return cls(keys, client)
+
     async def connection_report(self) -> dict[str, str]:
         """Returns {relay_url: status_string} -- useful for a caller to
         check how many relays actually connected before relying on
@@ -108,6 +132,43 @@ class KuberboltAgent:
             self.client, self.keys, name=name, about=about, picture=picture, **extra_fields
         )
 
+    async def register(self, role: Literal["client", "merchant"], display_name: str,
+                       about: str | None = None,
+                       lightning_address: str | None = None,
+                       service: dict | None = None) -> dict:
+        """Register profile and optionally service listing (if merchant role)."""
+        profile_event = await self.publish_profile(
+            name=display_name, about=about, lud16=lightning_address
+        )
+        listing_event = None
+        if role == "merchant":
+            if service is None:
+                raise ValueError("service info required for merchant role")
+            payload = {
+                "service_name": service["service_name"],
+                "service_description": service["service_description"],
+                "price_sats": service["price_sats"],
+                "price_unit": service["price_unit"],
+            }
+            content = json.dumps(payload)
+            category_tag = f"kuberbolt/{service['category']}" if not service["category"].startswith("kuberbolt/") else service["category"]
+            listing_event = (
+                EventBuilder(Kind(discovery.KIND_SERVICE_LISTING), content)
+                .tags([
+                    Tag.hashtag(discovery.normalize_tag(category_tag)),
+                    Tag.identifier(self.pubkey_hex),
+                ])
+                .finalize(self.keys)
+            )
+            await self.client.send_event(listing_event)
+
+        return {
+            "nostr_pubkey": self.pubkey_hex,
+            "nostr_privkey": self.keys.secret_key().to_hex(),
+            "profile_event_id": profile_event.id().to_hex(),
+            "listing_event_id": listing_event.id().to_hex() if listing_event is not None else None,
+        }
+
     # ------------------------------------------------------------------
     # Discovery
     # ------------------------------------------------------------------
@@ -120,6 +181,51 @@ class KuberboltAgent:
         return await discovery.find_by_hashtag(
             self.client, tag, kinds=kinds, limit=limit, timeout_secs=timeout_secs
         )
+
+    async def discover(self, category: str, price_max: int | None = None,
+                        limit: int = 50, timeout_secs: int = 8) -> list[dict]:
+        """Discover service listings under `category` with optional price filtering."""
+        category_tag = f"kuberbolt/{category}" if not category.startswith("kuberbolt/") else category
+        results = await discovery.find_by_hashtag(
+            self.client, category_tag, kinds=[discovery.KIND_SERVICE_LISTING],
+            limit=limit, timeout_secs=timeout_secs
+        )
+
+        discovered = []
+        for result in results:
+            try:
+                data = json.loads(result.content)
+                if not isinstance(data, dict):
+                    continue
+            except Exception:
+                continue
+
+            price_sats = data.get("price_sats")
+            if price_max is not None and price_sats is not None and price_sats > price_max:
+                continue
+
+            # fetch_profile per-result is N+1 relay calls, future optimization = batched author filter, don't build now
+            try:
+                author_pk = PublicKey.parse(result.author_pubkey)
+                profile = await discovery.fetch_profile(self.client, author_pk)
+            except Exception:
+                profile = None
+
+            discovered.append({
+                "provider_id": result.author_pubkey,
+                "nostr_pubkey": result.author_pubkey,
+                "name": profile.get("name") if profile else None,
+                "category": category,
+                "price_sats": price_sats,
+                "price_unit": data.get("price_unit"),
+                "service_name": data.get("service_name"),
+                "service_description": data.get("service_description"),
+                "listing_event_id": result.event_id,
+                "created_at": result.created_at,
+            })
+
+        discovered.sort(key=lambda x: x["created_at"], reverse=True)
+        return discovered
 
     # ------------------------------------------------------------------
     # Handshake

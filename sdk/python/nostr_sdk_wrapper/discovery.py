@@ -32,7 +32,7 @@ import json
 from dataclasses import dataclass
 from datetime import timedelta
 
-from nostr_sdk import Client, Event, EventBuilder, Filter, Keys, Kind, ReqTarget, Tag
+from nostr_sdk import Client, Event, EventBuilder, Filter, Keys, Kind, PublicKey, ReqTarget, Tag
 
 KIND_SERVICE_LISTING = 31990   # NIP-89 handler recommendation / parameterized replaceable
 KIND_JOB_REQUEST = 5202        # NIP-90 (unrecommended) DVM-style job request
@@ -112,3 +112,17 @@ async def listen_for_job_responses(client: Client, job_event_id, timeout_secs: i
     f = Filter().kind(Kind(KIND_JOB_FEEDBACK)).event(job_event_id).limit(50)
     events = await client.fetch_events(ReqTarget.auto([f]), timedelta(seconds=timeout_secs))
     return list(events)
+
+
+async def fetch_profile(client: Client, pubkey: PublicKey, timeout_secs: int = 5) -> dict | None:
+    """Fetch kind:0 profile metadata for a given author public key."""
+    try:
+        f = Filter().kind(Kind(0)).author(pubkey).limit(1)
+        events = await client.fetch_events(ReqTarget.auto([f]), timedelta(seconds=timeout_secs))
+        if not events:
+            return None
+        data = json.loads(events[0].content())
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
