@@ -2,7 +2,9 @@
   "pythonVersion": "3.12",
   "pythonPath": ".venv/bin/python",
   "extraPaths": [
-    "${workspaceRoot}/nostr"
+    "nostr",
+    "sdk/python"
   ],
   "typeCheckingMode": "basic"
 }
+
