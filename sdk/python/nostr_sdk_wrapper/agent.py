@@ -40,11 +40,19 @@ from nostr_sdk import (
     PublicKey,
     RelayStatus,
     RelayUrl,
+    SecretKey,
     Tag,
 )
 
 from . import discovery, handshake, identity
 from .discovery import TaggedEvent
+
+
+class AgentNotRegisteredError(ValueError):
+    def __init__(self, pubkey: str):
+        self.pubkey = pubkey
+        super().__init__(f"You are not registered (no profile found for {pubkey})")
+
 
 
 class KuberboltAgent:
@@ -102,12 +110,20 @@ class KuberboltAgent:
         await asyncio.sleep(connect_wait_secs)
         return cls(keys, client)
 
+    @classmethod
+    async def from_existing_key(cls, privkey_hex: str, identity_path: str | Path,
+                                relay_urls: list[str], connect_wait_secs: float = 3.0) -> "KuberboltAgent":
+        """Construct an agent from a previously issued private key."""
+        del identity_path
+        keys = Keys(SecretKey.parse(privkey_hex))
+        return await cls.from_keys(keys, relay_urls, connect_wait_secs)
+
     async def connection_report(self) -> dict[str, str]:
         """Returns {relay_url: status_string} -- useful for a caller to
         check how many relays actually connected before relying on
         discovery/handshake results."""
         relays = await self.client.relays()
-        return {url: str(relay.status()) for url, relay in relays.items()}
+        return {str(url): str(relay.status()) for url, relay in relays.items()}
 
     async def is_connected(self) -> bool:
         relays = await self.client.relays()
@@ -167,6 +183,53 @@ class KuberboltAgent:
             "nostr_privkey": self.keys.secret_key().to_hex(),
             "profile_event_id": profile_event.id().to_hex(),
             "listing_event_id": listing_event.id().to_hex() if listing_event is not None else None,
+        }
+    # ------------------------------------------------------------------
+    # Update profile
+    # ------------------------------------------------------------------
+
+    async def update_agent(self, updates: list[dict]) -> dict:
+        existing = await discovery.fetch_existing_profile(self.client, self.pubkey_hex)
+        if existing is None:
+            raise AgentNotRegisteredError(self.pubkey_hex)
+
+        current_profile = json.loads(existing.content())
+        changed = {update["field"]: update["value"] for update in updates}
+        profile_fields = {"display_name", "about", "picture_url", "lightning_address"}
+        listing_fields = {"service_name", "service_description", "price_sats", "price_unit"}
+
+        profile_event_id = None
+        if changed.keys() & profile_fields:
+            profile_event = await self.publish_profile(
+                name=changed.get("display_name", current_profile.get("name")),
+                about=changed.get("about", current_profile.get("about")),
+                picture=changed.get("picture_url", current_profile.get("picture")),
+                lud16=changed.get("lightning_address", current_profile.get("lud16")),
+            )
+            profile_event_id = profile_event.id().to_hex()
+
+        listing_event_id = None
+        if changed.keys() & listing_fields:
+            existing_listing = await discovery.fetch_existing_listing(self.client, self.pubkey_hex)
+            if existing_listing is None:
+                raise ValueError("No existing service listing to update - register as merchant first")
+            current_listing = json.loads(existing_listing.content())
+            merged_listing = {
+                **current_listing,
+                **{field: changed[field] for field in listing_fields if field in changed},
+            }
+            listing_event = (
+                EventBuilder(Kind(discovery.KIND_SERVICE_LISTING), json.dumps(merged_listing))
+                .tags(existing_listing.tags())
+                .finalize(self.keys)
+            )
+            await self.client.send_event(listing_event)
+            listing_event_id = listing_event.id().to_hex()
+
+        return {
+            "updated_fields": list(changed.keys()),
+            "profile_event_id": profile_event_id,
+            "listing_event_id": listing_event_id,
         }
 
     # ------------------------------------------------------------------

@@ -126,3 +126,23 @@ async def fetch_profile(client: Client, pubkey: PublicKey, timeout_secs: int = 5
     except Exception:
         return None
 
+
+async def fetch_existing_profile(client: Client, pubkey_hex: str, timeout_secs: int = 5) -> Event | None:
+    """Fetch the latest kind:0 profile for an agent."""
+    events = await client.fetch_events(
+        ReqTarget.auto([Filter().kind(Kind(0)).author(PublicKey.parse(pubkey_hex)).limit(1)]),
+        timedelta(seconds=timeout_secs),
+    )
+    return events[0] if events else None
+
+
+async def fetch_existing_listing(client: Client, pubkey_hex: str, timeout_secs: int = 5) -> Event | None:
+    """Fetch the latest service listing published by an agent."""
+    events = await client.fetch_events(
+        ReqTarget.auto([
+            Filter().kind(Kind(KIND_SERVICE_LISTING)).author(PublicKey.parse(pubkey_hex)).limit(1)
+        ]),
+        timedelta(seconds=timeout_secs),
+    )
+    return events[0] if events else None
+

@@ -28,7 +28,7 @@ class RegisterAgentRequest(BaseModel):
     display_name: str
     about: str | None = None
     picture_url: str | None = None
-    lightning: LightningCredentials
+    lightning: LightningCredentials | None = None
     service: ServiceInfo | None = None
     relays: list[str] | None = None
 
@@ -45,10 +45,30 @@ class RegisterAgentResponse(BaseModel):
     agent_pubkey: str
     agent_privkey: str
     role: str
-    lightning: LightningCredentials
+    lightning: LightningCredentials | None = None
     service: ServiceInfo | None = None
     profile_event_id: str
     listing_event_id: str | None = None
     status: Literal["registered"] = "registered"
     registered_at: datetime
     privkey_warning: str = "Store this key now — it will not be shown again."
+
+
+class UpdateField(BaseModel):
+    field: Literal["display_name", "about", "picture_url", "lightning_address",
+                   "service_name", "service_description", "price_sats", "price_unit"]
+    value: str | int
+
+class UpdateAgentRequest(BaseModel):
+    agent_pubkey: str
+    agent_privkey: str          # required to sign the update — see note above
+    updates: list[UpdateField]
+    relays: list[str] | None = None
+
+class UpdateAgentResponse(BaseModel):
+    agent_pubkey: str
+    updated_fields: list[str]
+    profile_event_id: str | None
+    listing_event_id: str | None
+    status: str
+    updated_at: datetime
