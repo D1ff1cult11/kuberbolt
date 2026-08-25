@@ -28,8 +28,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
+
+logger = logging.getLogger("kuberbolt.nostr_sdk_wrapper.agent")
 
 from nostr_sdk import (
     Client,
@@ -320,6 +325,122 @@ class KuberboltAgent:
             except Exception:
                 continue
         return decrypted
+
+    # ------------------------------------------------------------------
+    # Automated Endpoint Resolution (Provider Daemon)
+    # ------------------------------------------------------------------
+
+    async def serve_endpoint_requests(
+        self,
+        host: str,
+        port: int,
+        poll_interval: int = 5,
+        db_path: str = "ledger.db",
+        allowed_pubkeys: list[str] | None = None,
+        stop_event: asyncio.Event | None = None,
+    ) -> None:
+        """Background listener/server loop for Provider Agents.
+
+        Polls for NIP-44 encrypted `resolve_endpoint` handshake requests, records
+        processed event IDs in SQLite (`seen_requests` table) before replying to
+        prevent duplicate replies/race conditions, and responds with the gRPC
+        `host` and `port`.
+        """
+        conn = sqlite3.connect(db_path)
+        with conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS seen_requests (
+                    event_id        TEXT PRIMARY KEY,
+                    sender_pubkey   TEXT NOT NULL,
+                    job_id          TEXT,
+                    replied_at      TIMESTAMP NOT NULL
+                );
+            """)
+
+        consecutive_errors = 0
+
+        try:
+            while stop_event is None or not stop_event.is_set():
+                try:
+                    events = await handshake.fetch_handshake_events(
+                        self.client, self.keys.public_key(), timeout_secs=poll_interval
+                    )
+                    consecutive_errors = 0
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    consecutive_errors += 1
+                    backoff_secs = min(poll_interval * (2 ** (consecutive_errors - 1)), 60)
+                    logger.error(
+                        "Error fetching handshake events (attempt %d): %s. Backing off for %ds.",
+                        consecutive_errors,
+                        e,
+                        backoff_secs,
+                    )
+                    await asyncio.sleep(backoff_secs)
+                    continue
+
+                for ev in events:
+                    event_id = ev.id().to_hex()
+
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT 1 FROM seen_requests WHERE event_id = ?", (event_id,))
+                    if cursor.fetchone() is not None:
+                        continue
+
+                    try:
+                        payload = handshake.decrypt_event(self.keys, ev)
+                        if not isinstance(payload, dict):
+                            continue
+                    except Exception as e:
+                        logger.warning("Failed to decrypt event %s: %s", event_id, e)
+                        continue
+
+                    if payload.get("action") != "resolve_endpoint":
+                        continue
+
+                    job_id = payload.get("job_id")
+                    if not job_id:
+                        logger.warning("Missing job_id in resolve_endpoint request %s", event_id)
+                        continue
+
+                    sender_pubkey = ev.author().to_hex()
+                    if allowed_pubkeys is not None and sender_pubkey not in allowed_pubkeys:
+                        logger.warning(
+                            "Sender %s not in allowed_pubkeys list for event %s", sender_pubkey, event_id
+                        )
+                        continue
+
+                    # Record event as seen in SQLite FIRST to prevent races
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    with conn:
+                        conn.execute(
+                            "INSERT INTO seen_requests (event_id, sender_pubkey, job_id, replied_at) VALUES (?, ?, ?, ?)",
+                            (event_id, sender_pubkey, job_id, now_iso),
+                        )
+
+                    # Send handshake response with host and port
+                    reply_payload = {
+                        "job_id": job_id,
+                        "host": host,
+                        "port": port,
+                    }
+                    try:
+                        await self.send_handshake(sender_pubkey, reply_payload)
+                        logger.info(
+                            "Successfully replied to resolve_endpoint for job_id %s to %s",
+                            job_id,
+                            sender_pubkey,
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "Failed to send handshake reply for job_id %s to %s: %s",
+                            job_id,
+                            sender_pubkey,
+                            e,
+                        )
+        finally:
+            conn.close()
 
     # ------------------------------------------------------------------
     # Teardown
