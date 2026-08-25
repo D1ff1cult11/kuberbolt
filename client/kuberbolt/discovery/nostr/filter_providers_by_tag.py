@@ -1,9 +1,6 @@
 from datetime import timedelta
-import asyncio
-from connect_to_relay import connect_to_relays
 
-from nostr_sdk import Client, Filter
-from nostr_sdk import  RelayUrl
+from nostr_sdk import Client, Filter, ReqTarget
 
 async def filter_providers_by_tag(client: Client, tag: str, limit: int = 25) -> list[dict]:
     """
@@ -17,14 +14,14 @@ async def filter_providers_by_tag(client: Client, tag: str, limit: int = 25) -> 
     f = Filter().hashtag(tag).limit(limit)
     
     # Fetch the events with an 8-second timeout
-    events = await client.fetch_events([f], timedelta(seconds=8))
+    events = await client.fetch_events(ReqTarget.auto([f]), timedelta(seconds=8))
     
     providers = []
-    for ev in events.to_vec():
+    for ev in events:
         providers.append({
             "author_pubkey": ev.author().to_hex(),
             "kind": ev.kind().as_u16(),
-            "tags": [t.as_vec() for t in ev.tags().to_vec()],
+            "tags": [t.to_vec() for t in ev.tags()],
             "content": ev.content(),
             "event_id": ev.id().to_hex(),
             "created_at": ev.created_at().as_secs()

@@ -61,6 +61,25 @@ SAMPLE_PROVIDERS = [
     },
 ]
 
+SAMPLE_TAG_SEARCH_RESULTS = [
+    {
+        "author_pubkey": "aaa111",
+        "kind": 1,
+        "tags": [["t", "video-analysis"]],
+        "content": "I offer video analysis services",
+        "event_id": "evt1",
+        "created_at": 1700000000,
+    },
+    {
+        "author_pubkey": "bbb222",
+        "kind": 31990,
+        "tags": [["t", "video-analysis"], ["k", "5202"]],
+        "content": "Video AI provider",
+        "event_id": "evt2",
+        "created_at": 1700000100,
+    },
+]
+
 
 # ---------------------------------------------------------------------------
 # Mock KuberboltAgent factory
@@ -122,6 +141,8 @@ def client(mock_agent):
         patch("api.routers.requests.Keys") as MockKeys,
         patch("api.routers.requests.SecretKey") as MockSecretKey,
         patch("api.routers.providers.get_discovery_agent", new_callable=AsyncMock) as mock_discovery,
+        patch("api.routers.search.get_discovery_agent", new_callable=AsyncMock) as mock_search_discovery,
+        patch("api.routers.search.filter_providers_by_tag", new_callable=AsyncMock) as mock_tag_search,
     ):
         # agents router: KuberboltAgent.create() -> mock_agent
         AgentClsAgents.create = AsyncMock(return_value=mock_agent)
@@ -135,8 +156,12 @@ def client(mock_agent):
         MockKeys.return_value = mock_keys_instance
         MockSecretKey.parse.return_value = MagicMock()
 
-        # discovery agent
+        # discovery agent (providers + search routers)
         mock_discovery.return_value = mock_agent
+        mock_search_discovery.return_value = mock_agent
+
+        # tag search — default returns SAMPLE_TAG_SEARCH_RESULTS
+        mock_tag_search.return_value = SAMPLE_TAG_SEARCH_RESULTS
 
         from api.main import app
         yield TestClient(app, raise_server_exceptions=False)
