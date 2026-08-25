@@ -60,7 +60,7 @@ def test_register_client():
     }
 
     response = client.post("/api/agents/register", json=request_data)
-    assert response.status_code == 200, response.text
+    assert response.status_code == 201, response.text
     data = response.json()
     assert data["role"] == "client"
     assert "agent_pubkey" in data
@@ -90,7 +90,7 @@ def test_register_merchant():
     }
 
     response = client.post("/api/agents/register", json=request_data)
-    assert response.status_code == 200, response.text
+    assert response.status_code == 201, response.text
     data = response.json()
     assert data["role"] == "merchant"
     assert "agent_pubkey" in data
@@ -132,7 +132,7 @@ def test_invalid_nostr_privkey():
         },
     )
     assert response.status_code == 400
-    assert response.json()["detail"] == "invalid nostr_privkey"
+    assert response.json()["message"] == "invalid nostr_privkey"
 
 
 def test_discover_providers():

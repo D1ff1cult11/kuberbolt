@@ -17,44 +17,35 @@ from nostr_sdk_wrapper.agent import AgentNotRegisteredError as KuberboltAgentNot
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 
-@router.post("/register", response_model=RegisterAgentResponse)
+@router.post("/register", response_model=RegisterAgentResponse, status_code=201)
 async def register_agent(req: RegisterAgentRequest):
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            identity_path = os.path.join(tmpdir, "id.json")
-            agent = await KuberboltAgent.create(
-                identity_path=identity_path,
-                relay_urls=req.relays or DEFAULT_RELAYS,
+    with tempfile.TemporaryDirectory() as tmpdir:
+        identity_path = os.path.join(tmpdir, "id.json")
+        agent = await KuberboltAgent.create(
+            identity_path=identity_path,
+            relay_urls=req.relays or DEFAULT_RELAYS,
+        )
+        try:
+            lightning_address = (
+                req.lightning.lightning_address or req.lightning.lnurl
             )
-            try:
-                lightning_address = (
-                    req.lightning.lightning_address or req.lightning.lnurl
-                    if req.lightning
-                    else None
-                )
-                result = await agent.register(
-                    role=req.role,
-                    display_name=req.display_name,
+            result = await agent.register(
+                role=req.role,
+                display_name=req.display_name,
+                about=req.about,
+                lightning_address=lightning_address,
+                service=req.service.model_dump() if req.service else None,
+            )
+            if req.picture_url:
+                profile_event = await agent.publish_profile(
+                    name=req.display_name,
                     about=req.about,
-                    lightning_address=lightning_address,
-                    service=req.service.model_dump() if req.service else None,
+                    picture=req.picture_url,
+                    lud16=lightning_address,
                 )
-                if req.picture_url:
-                    profile_event = await agent.publish_profile(
-                        name=req.display_name,
-                        about=req.about,
-                        picture=req.picture_url,
-                        lud16=lightning_address,
-                    )
-                    result["profile_event_id"] = profile_event.id().to_hex()
-            finally:
-                await agent.disconnect()
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=400, detail=str(e))
+                result["profile_event_id"] = profile_event.id().to_hex()
+        finally:
+            await agent.disconnect()
 
     return RegisterAgentResponse(
         agent_pubkey=result["nostr_pubkey"],
@@ -81,9 +72,8 @@ async def update_agent(req: UpdateAgentRequest):
             )
             try:
                 if agent.pubkey_hex != req.agent_pubkey:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="agent_pubkey does not match the provided private key",
+                    raise ValueError(
+                        "agent_pubkey does not match the provided private key"
                     )
                 result = await agent.update_agent(
                     updates=[u.model_dump() for u in req.updates]
@@ -92,12 +82,6 @@ async def update_agent(req: UpdateAgentRequest):
                 await agent.disconnect()
     except KuberboltAgentNotRegisteredError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=400, detail=str(e))
 
     return UpdateAgentResponse(
         agent_pubkey=req.agent_pubkey,
@@ -107,3 +91,4 @@ async def update_agent(req: UpdateAgentRequest):
         status="updated",
         updated_at=datetime.now(timezone.utc),
     )
+

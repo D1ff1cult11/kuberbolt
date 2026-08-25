@@ -28,7 +28,7 @@ class RegisterAgentRequest(BaseModel):
     display_name: str
     about: str | None = None
     picture_url: str | None = None
-    lightning: LightningCredentials | None = None
+    lightning: LightningCredentials
     service: ServiceInfo | None = None
     relays: list[str] | None = None
 

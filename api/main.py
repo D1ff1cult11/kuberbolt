@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.dependencies import cleanup_discovery_agent, get_discovery_agent
+from api.errors import register_exception_handlers
 from api.routers import agents, providers, requests
 
 # Configure logging
@@ -84,6 +85,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Kuberbolt REST API", lifespan=lifespan)
+
+# Register global exception handlers
+register_exception_handlers(app)
 
 # CORS middleware (allow frontend origin from env var)
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")

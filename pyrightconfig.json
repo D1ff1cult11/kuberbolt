@@ -2,6 +2,7 @@
   "pythonVersion": "3.12",
   "pythonPath": ".venv/bin/python",
   "extraPaths": [
+    ".",
     "nostr",
     "sdk/python"
   ],

@@ -1,10 +1,11 @@
 import sys
 import time
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from nostr_sdk import Keys, SecretKey
 
 from api.dependencies import DEFAULT_RELAYS
+from api.errors import InvalidPrivkeyError
 from api.schemas.requests import RequestEndpointRequest, RequestEndpointResponse
 
 sdk_path = Path(__file__).resolve().parent.parent.parent / "sdk" / "python"
@@ -24,7 +25,7 @@ async def request_endpoint(req: RequestEndpointRequest):
     try:
         keys = Keys(SecretKey.parse(req.nostr_privkey))
     except Exception:
-        raise HTTPException(status_code=400, detail="invalid nostr_privkey")
+        raise InvalidPrivkeyError("invalid nostr_privkey")
 
     agent = None
     start_time = time.perf_counter()
