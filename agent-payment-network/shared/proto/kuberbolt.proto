@@ -1,0 +1,150 @@
+syntax = "proto3";
+
+package kuberbolt.v1;
+
+option go_package = "github.com/kuberbolt/proto/v1";
+
+// =====================================================================
+// COMMON SDK SERVICE
+// Central orchestration hub for discovery, signaling, and routing.
+// =====================================================================
+service CommonSDKService {
+  // Discovery & Negotiation
+  rpc DiscoverProviders(DiscoverRequest) returns (DiscoverResponse);
+  rpc RequestQuote(QuoteRequest) returns (QuoteResponse);
+  
+  // Payment & Execution Coordination
+  rpc GetHoldInvoice(HoldInvoiceRequest) returns (HoldInvoiceResponse);
+  rpc PublishJobRequest(JobRequest) returns (JobResponse);
+  rpc ExecuteJob(ExecuteRequest) returns (ExecuteResponse);
+  rpc RevealPreimage(RevealPreimageRequest) returns (RevealPreimageResponse);
+  
+  // Status Tracking
+  rpc GetTransactionStatus(TxStatusRequest) returns (TxStatusResponse);
+}
+
+message DiscoverRequest {
+  int32 job_kind = 1;
+  map<string, string> filters = 2;
+}
+
+message ProviderInfo {
+  string pubkey = 1;
+  uint64 price_msat = 2;
+  string endpoint = 3;
+}
+
+message DiscoverResponse {
+  repeated ProviderInfo providers = 1;
+}
+
+message QuoteRequest {
+  string provider_pubkey = 1;
+  bytes job_spec = 2; // JSON encoded spec
+}
+
+message QuoteResponse {
+  uint64 amount_msat = 1;
+  int32 ttl_seconds = 2;
+  string invoice_id = 3;
+}
+
+message HoldInvoiceRequest {
+  string provider_pubkey = 1;
+  uint64 amount_msat = 2;
+}
+
+message HoldInvoiceResponse {
+  string hold_invoice = 1;
+  string payment_hash = 2;
+}
+
+message JobRequest {
+  string job_id = 1;
+  string provider_pubkey = 2;
+  string payment_hash = 3;
+}
+
+message JobResponse {
+  bool success = 1;
+}
+
+message ExecuteRequest {
+  string job_id = 1;
+  bytes job_spec = 2;
+}
+
+message ExecuteResponse {
+  string status = 1;
+  bytes result_data = 2;
+}
+
+message RevealPreimageRequest {
+  string job_id = 1;
+  string preimage = 2;
+}
+
+message RevealPreimageResponse {
+  bool success = 1;
+}
+
+message TxStatusRequest {
+  string tx_id = 1; // Or payment_hash
+}
+
+message TxStatusResponse {
+  string status = 1; // PENDING, SETTLED, FAILED
+  uint64 amount_msat = 2;
+  int64 timestamp = 3;
+}
+
+// =====================================================================
+// FINANCIAL POD SERVICE
+// Local agent interface to their own Financial Pod.
+// =====================================================================
+service FinancialPodService {
+  // Client Role: Pay outbound invoices
+  rpc PayHoldInvoice(PayHoldInvoiceRequest) returns (PayHoldInvoiceResponse);
+  rpc SettleHoldInvoice(SettleHoldInvoiceRequest) returns (SettleHoldInvoiceResponse);
+  
+  // Provider Role: Manage incoming requests
+  rpc ValidatePaymentHold(ValidateHoldRequest) returns (ValidateHoldResponse);
+  rpc CreateHoldInvoice(CreateHoldInvoiceRequest) returns (CreateHoldInvoiceResponse);
+}
+
+message PayHoldInvoiceRequest {
+  string invoice = 1;
+}
+
+message PayHoldInvoiceResponse {
+  bool success = 1;
+  string status = 2; // PENDING (HTLC locked)
+}
+
+message SettleHoldInvoiceRequest {
+  string preimage = 1;
+}
+
+message SettleHoldInvoiceResponse {
+  bool success = 1;
+}
+
+message ValidateHoldRequest {
+  string payment_hash = 1;
+}
+
+message ValidateHoldResponse {
+  bool is_locked = 1;
+  uint64 amount_msat = 2;
+}
+
+message CreateHoldInvoiceRequest {
+  uint64 amount_msat = 1;
+  string memo = 2;
+}
+
+message CreateHoldInvoiceResponse {
+  string hold_invoice = 1;
+  string payment_hash = 2;
+  string preimage = 3; // Kept secret by FP until settlement
+}

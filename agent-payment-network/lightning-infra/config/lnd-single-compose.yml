@@ -1,0 +1,35 @@
+version: '3.7'
+services:
+  lnd:
+    image: lightninglabs/lnd:v0.18.0-beta
+    container_name: kuberbolt-lnd
+    # Adjust command flags or supply via environment/override file
+    command:
+      - --bitcoin.active
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=${BITCOIND_HOST:-bitcoind}:${BITCOIND_RPC_PORT:-18443}
+      - --bitcoind.rpcuser=${BITCOIND_RPC_USER:-rpcuser}
+      - --bitcoind.rpcpass=${BITCOIND_RPC_PASS:-rpcpassword}
+      - --bitcoind.zmqpubrawblock=${BITCOIND_ZMQ_BLOCK:-tcp://bitcoind:28332}
+      - --bitcoind.zmqpubrawtx=${BITCOIND_ZMQ_TX:-tcp://bitcoind:28333}
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8080
+      - --listen=0.0.0.0:9735
+      - --alias=${LND_ALIAS:-User}
+      - --noseedbackup
+    ports:
+      - "10009:10009" # gRPC
+      - "8080:8080"   # REST
+      - "9735:9735"   # P2P
+    volumes:
+      - lnd_data:/root/.lnd
+    environment:
+      - BITCOIND_HOST
+      - BITCOIND_RPC_PORT
+      - BITCOIND_RPC_USER
+      - BITCOIND_RPC_PASS
+      - LND_ALIAS
+
+volumes:
+  lnd_data:

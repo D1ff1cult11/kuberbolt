@@ -1,0 +1,79 @@
+services:
+  bitcoind:
+    image: lncm/bitcoind:v26.0
+    container_name: kuberbolt-bitcoind
+    command:
+      - -regtest
+      - -server=1
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -rpcuser=rpcuser
+      - -rpcpassword=rpcpassword
+      - -rpcport=18443
+      - -zmqpubrawblock=tcp://0.0.0.0:28332
+      - -zmqpubrawtx=tcp://0.0.0.0:28333
+      - -txindex=1
+      - -fallbackfee=0.0002
+    ports:
+      - "18443:18443"
+      - "28332:28332"
+      - "28333:28333"
+    volumes:
+      - bitcoin_data:/home/bitcoin/.bitcoin
+
+  lnd1:
+    image: lightninglabs/lnd:v0.18.0-beta
+    container_name: kuberbolt-lnd1
+    depends_on:
+      - bitcoind
+    command:
+      - --bitcoin.active
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind:18443
+      - --bitcoind.rpcuser=rpcuser
+      - --bitcoind.rpcpass=rpcpassword
+      - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+      - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8080
+      - --listen=0.0.0.0:9735
+      - --alias=User1_Alice
+      - --noseedbackup
+    ports:
+      - "10009:10009" # gRPC
+      - "8080:8080"   # REST
+      - "9735:9735"   # P2P
+    volumes:
+      - lnd1_data:/root/.lnd
+
+  lnd2:
+    image: lightninglabs/lnd:v0.18.0-beta
+    container_name: kuberbolt-lnd2
+    depends_on:
+      - bitcoind
+    command:
+      - --bitcoin.active
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind:18443
+      - --bitcoind.rpcuser=rpcuser
+      - --bitcoind.rpcpass=rpcpassword
+      - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+      - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8080
+      - --listen=0.0.0.0:9735
+      - --alias=User2_Bob
+      - --noseedbackup
+    ports:
+      - "10010:10009" # gRPC
+      - "8081:8080"   # REST
+      - "9736:9735"   # P2P
+    volumes:
+      - lnd2_data:/root/.lnd
+
+volumes:
+  bitcoin_data:
+  lnd1_data:
+  lnd2_data:

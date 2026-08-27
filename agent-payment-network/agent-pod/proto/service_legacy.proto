@@ -1,0 +1,21 @@
+syntax = "proto3";
+package kuberbolt;
+option go_package = "./pb";
+
+// The gRPC Service Definition for the Merchant AI
+service ComputeNode {
+  // A standard unary RPC call
+  rpc RunTask (TaskRequest) returns (TaskResponse);
+}
+
+// What the Client sends to the Merchant
+message TaskRequest {
+  string prompt = 1;      // e.g., "Summarize this text"
+  bytes input_data = 2;   // e.g., the raw text or image
+}
+
+// What the Merchant returns to the Client
+message TaskResponse {
+  string result = 1;      // e.g., "The summary is..."
+  bool success = 2;
+}

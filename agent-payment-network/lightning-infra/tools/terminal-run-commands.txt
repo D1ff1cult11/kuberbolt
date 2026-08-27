@@ -1,0 +1,20 @@
+terminal run commands for lightning node
+
+-->download all the images from docker
+docker compose up -d
+
+-->running the program
+go run main.go
+
+-->creating an invoice (e.g. 1500 sats to test guardrail)
+docker exec -i kuberbolt-lnd2 lncli --network=regtest addinvoice --amt=1500 --memo="Test 1500 sat payment"
+
+-->paying the invoice (guardrail automatically checks limit of 1000 sats)
+go run pay.go <PASTE_PAYMENT_REQUEST_HERE>
+
+-->verification
+docker exec -i kuberbolt-lnd1 lncli --network=regtest channelbalance
+docker exec -i kuberbolt-lnd2 lncli --network=regtest channelbalance
+
+-->close
+docker compose down -v
