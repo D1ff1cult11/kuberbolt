@@ -140,6 +140,9 @@ def client(mock_agent):
         patch("api.routers.requests.KuberboltAgent") as AgentClsRequests,
         patch("api.routers.requests.Keys") as MockKeys,
         patch("api.routers.requests.SecretKey") as MockSecretKey,
+        patch("api.routers.feedback.KuberboltAgent") as AgentClsFeedback,
+        patch("api.routers.feedback.Keys") as MockFeedbackKeys,
+        patch("api.routers.feedback.SecretKey") as MockFeedbackSecretKey,
         patch("api.routers.providers.get_discovery_agent", new_callable=AsyncMock) as mock_discovery,
         patch("api.routers.search.get_discovery_agent", new_callable=AsyncMock) as mock_search_discovery,
         patch("api.routers.search.filter_providers_by_tag", new_callable=AsyncMock) as mock_tag_search,
@@ -151,10 +154,15 @@ def client(mock_agent):
         # requests router: KuberboltAgent.from_keys() -> mock_agent
         AgentClsRequests.from_keys = AsyncMock(return_value=mock_agent)
 
+        # feedback router: KuberboltAgent.from_keys() -> mock_agent
+        AgentClsFeedback.from_keys = AsyncMock(return_value=mock_agent)
+
         # Keys / SecretKey mocking for requests router
         mock_keys_instance = MagicMock()
         MockKeys.return_value = mock_keys_instance
         MockSecretKey.parse.return_value = MagicMock()
+        MockFeedbackSecretKey.parse.return_value = MagicMock()
+        MockFeedbackKeys.return_value = MagicMock()
 
         # discovery agent (providers + search routers)
         mock_discovery.return_value = mock_agent

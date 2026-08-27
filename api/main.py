@@ -17,7 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.dependencies import cleanup_discovery_agent, get_discovery_agent
 from api.errors import register_exception_handlers
-from api.routers import agents, providers, requests, search
+from api.routers import agents, feedback, providers, requests, search
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -109,6 +109,7 @@ app.include_router(agents.router)
 app.include_router(providers.router)
 app.include_router(requests.router)
 app.include_router(search.router)
+app.include_router(feedback.router)
 
 
 @app.get("/health")
