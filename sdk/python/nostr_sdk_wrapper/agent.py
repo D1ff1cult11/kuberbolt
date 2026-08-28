@@ -49,7 +49,7 @@ from nostr_sdk import (
     Tag,
 )
 
-from . import discovery, handshake, identity
+from . import discovery, feedback, handshake, identity
 from .discovery import TaggedEvent
 
 
@@ -324,6 +324,25 @@ class KuberboltAgent:
             except Exception:
                 continue
         return decrypted
+
+    async def publish_feedback(
+        self,
+        counterparty_pubkey: str | PublicKey,
+        job_id: str,
+        feedback_text: str,
+        rating: int,
+    ) -> Event:
+        """Publish signed kind:7000 feedback for a completed job."""
+        if isinstance(counterparty_pubkey, str):
+            counterparty_pubkey = PublicKey.parse(counterparty_pubkey)
+        return await feedback.publish_feedback(
+            self.client,
+            self.keys,
+            counterparty_pubkey,
+            job_id,
+            feedback_text,
+            rating,
+        )
 
     # ------------------------------------------------------------------
     # Automated Endpoint Resolution (Provider Daemon)
