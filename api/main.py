@@ -24,12 +24,27 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("kuberbolt.api")
 
 
+SENSITIVE_KEY_MARKERS = (
+    "privkey",
+    "secret",
+    "private_key",
+    "api_key",
+    "token",
+    "password",
+)
+
+
+def _is_sensitive_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(marker in lowered for marker in SENSITIVE_KEY_MARKERS)
+
+
 def redact_sensitive_data(data):
     """Recursively redact sensitive key fields such as nostr_privkey."""
     if isinstance(data, dict):
         result = {}
         for key, value in data.items():
-            if "privkey" in key.lower() or "secret" in key.lower():
+            if _is_sensitive_key(key):
                 result[key] = "[REDACTED]"
             else:
                 result[key] = redact_sensitive_data(value)
@@ -42,10 +57,15 @@ def redact_sensitive_data(data):
 class SensitiveDataRedactionLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         body_bytes = await request.body()
+        body_consumed = False
 
         # Re-assign request._receive so downstream endpoint handlers can still read body
         async def receive():
-            return {"type": "http.request", "body": body_bytes}
+            nonlocal body_consumed
+            if body_consumed:
+                return {"type": "http.request", "body": b"", "more_body": False}
+            body_consumed = True
+            return {"type": "http.request", "body": body_bytes, "more_body": False}
 
         request._receive = receive
 
@@ -57,11 +77,23 @@ class SensitiveDataRedactionLoggingMiddleware(BaseHTTPMiddleware):
                 logged_body = json.dumps(redacted_json)
             except Exception:
                 raw_str = body_bytes.decode("utf-8", errors="ignore")
-                logged_body = re.sub(
-                    r'("nostr_privkey"\s*:\s*")[^"]+(")',
-                    r'\1[REDACTED]\2',
-                    raw_str
-                )
+                for field_name in (
+                    "nostr_privkey",
+                    "agent_privkey",
+                    "secret_key",
+                    "secret_key_hex",
+                    "secret_key_bech32",
+                    "private_key",
+                    "api_key",
+                    "token",
+                    "password",
+                ):
+                    raw_str = re.sub(
+                        rf'("{field_name}"\s*:\s*")[^"]+(")',
+                        r'\1[REDACTED]\2',
+                        raw_str,
+                    )
+                logged_body = raw_str
 
         logger.info(f"Incoming Request: {request.method} {request.url.path} Body: {logged_body}")
 

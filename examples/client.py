@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -7,21 +8,28 @@ if str(sdk_path) not in sys.path:
     sys.path.insert(0, str(sdk_path))
 
 from nostr_sdk_wrapper.agent import KuberboltAgent
+from config import get_int_env, get_relays, load_env_file, require_env
 
-CLIENT_NSEC = "1fd94547e03a4f08a89378858275ff32b8fac3d29f2ebd5710e4ddef18b94382"
-RELAYS = ["wss://relay.damus.io", "wss://nos.lol"]
-PROVIDER_PUBKEY = "740bb0bc7f57114237ca5c872bdd0ab4261a9601b7aefdbed638b08b2c7c4afa"  # the provider's public key
 
 async def main():
+    load_env_file()
+    client_nsec = require_env("KUBERBOLT_CLIENT_NSEC")
+    provider_pubkey = require_env("KUBERBOLT_PROVIDER_PUBKEY")
+    identity_path = os.getenv("KUBERBOLT_CLIENT_IDENTITY_PATH", "examples/client_identity.json")
+    timeout_seconds = get_int_env("KUBERBOLT_HANDSHAKE_TIMEOUT_SECONDS", 30)
+
     agent = await KuberboltAgent.from_existing_key(
-        privkey_hex=CLIENT_NSEC,
-        identity_path="examples/client_identity.json",
-        relay_urls=RELAYS,
+        privkey_hex=client_nsec,
+        identity_path=identity_path,
+        relay_urls=get_relays(),
     )
-    print("sending handshake to provider:", PROVIDER_PUBKEY)
-    await agent.send_handshake(PROVIDER_PUBKEY, {"action": "resolve_endpoint", "job_id": "test-1"})
-    reply = await agent.fetch_handshake_replies(timeout_secs=30)
-    print("Got reply:", reply)
+    try:
+        print("sending handshake to provider:", provider_pubkey)
+        await agent.send_handshake(provider_pubkey, {"action": "resolve_endpoint", "job_id": "test-1"})
+        reply = await agent.fetch_handshake_replies(timeout_secs=timeout_seconds)
+        print("Got reply:", reply)
+    finally:
+        await agent.disconnect()
 
 if __name__ == "__main__":
     asyncio.run(main())

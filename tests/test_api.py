@@ -64,9 +64,8 @@ def test_register_client():
     data = response.json()
     assert data["role"] == "client"
     assert "agent_pubkey" in data
-    assert "agent_privkey" in data
+    assert "agent_privkey" not in data
     assert data["status"] == "registered"
-    assert data["privkey_warning"] == "Store this key now — it will not be shown again."
     assert data["listing_event_id"] is None
     assert "profile_event_id" in data
 
@@ -94,7 +93,7 @@ def test_register_merchant():
     data = response.json()
     assert data["role"] == "merchant"
     assert "agent_pubkey" in data
-    assert "agent_privkey" in data
+    assert "agent_privkey" not in data
     assert data["service"]["service_name"] == "AI Text Generation"
     assert data["status"] == "registered"
     assert data["listing_event_id"] is not None

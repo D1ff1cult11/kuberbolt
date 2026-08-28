@@ -1,8 +1,42 @@
-RELAYS = ["wss://relay.damus.io"]
-# fallback if that's slow/unstable: wss://nos.lol or wss://relay.nostr.band# provider_config.py
-PROVIDER_NSEC = "39cb7ddad069ccdf2636dad4fa8c12d6658db322eb7061f3834a4e3b068c9d7e"
-RELAYS = ["wss://relay.damus.io"]
+import os
+from pathlib import Path
 
-# client_config.py
-CLIENT_NSEC = "1fd94547e03a4f08a89378858275ff32b8fac3d29f2ebd5710e4ddef18b94382"
-RELAYS = ["wss://relay.damus.io"]
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ENV_PATH = PROJECT_ROOT / ".env"
+DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol"]
+
+
+def load_env_file(path: Path = ENV_PATH) -> None:
+    """Load simple KEY=VALUE pairs from .env without adding a dependency."""
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        os.environ.setdefault(key, value)
+
+
+def require_env(name: str) -> str:
+    value = os.getenv(name)
+    if value:
+        return value
+    raise RuntimeError(f"Missing required environment variable: {name}")
+
+
+def get_relays() -> list[str]:
+    raw_relays = os.getenv("KUBERBOLT_RELAYS") or os.getenv("DEFAULT_RELAYS")
+    if not raw_relays:
+        return DEFAULT_RELAYS
+    return [relay.strip() for relay in raw_relays.split(",") if relay.strip()]
+
+
+def get_int_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    return int(raw_value) if raw_value else default

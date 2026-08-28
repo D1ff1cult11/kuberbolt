@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from tests.conftest import FAKE_LISTING_EVENT_ID, FAKE_PRIVKEY, FAKE_PUBKEY
+from tests.conftest import FAKE_LISTING_EVENT_ID, FAKE_PUBKEY
 
 
 # ---------------------------------------------------------------------------
@@ -12,7 +12,7 @@ from tests.conftest import FAKE_LISTING_EVENT_ID, FAKE_PRIVKEY, FAKE_PUBKEY
 # ---------------------------------------------------------------------------
 
 def test_register_merchant_with_service(client, mock_agent):
-    """Register merchant with valid service -> 201, has agent_privkey, listing_event_id not None."""
+    """Register merchant with valid service -> 201, listing_event_id not None."""
     response = client.post("/api/agents/register", json={
         "role": "merchant",
         "display_name": "Merchant Bob",
@@ -32,8 +32,8 @@ def test_register_merchant_with_service(client, mock_agent):
 
     assert response.status_code == 201, response.text
     data = response.json()
-    assert data["agent_privkey"] == FAKE_PRIVKEY
     assert data["agent_pubkey"] == FAKE_PUBKEY
+    assert "agent_privkey" not in data
     assert data["listing_event_id"] is not None
     assert data["listing_event_id"] == FAKE_LISTING_EVENT_ID
     assert data["status"] == "registered"
@@ -48,7 +48,6 @@ def test_register_client_no_service(client, mock_agent):
     # Configure mock to return None for listing_event_id (client has no listing)
     mock_agent.register.return_value = {
         "nostr_pubkey": FAKE_PUBKEY,
-        "nostr_privkey": FAKE_PRIVKEY,
         "profile_event_id": "profile_hex",
         "listing_event_id": None,
     }
@@ -67,7 +66,7 @@ def test_register_client_no_service(client, mock_agent):
     data = response.json()
     assert data["listing_event_id"] is None
     assert data["role"] == "client"
-    assert "agent_privkey" in data
+    assert "agent_privkey" not in data
 
 
 # ---------------------------------------------------------------------------
@@ -139,12 +138,11 @@ def test_privkey_not_leaked_in_logs(client, mock_agent, caplog):
 
     assert response.status_code == 201
 
-    # The privkey must appear in the response body (it's supposed to)
     data = response.json()
-    assert data["agent_privkey"] == FAKE_PRIVKEY
+    assert "agent_privkey" not in data
 
     # But it must NOT appear in any log record
     for record in caplog.records:
-        assert FAKE_PRIVKEY not in record.message, (
+        assert "privkey" not in record.message.lower(), (
             f"Privkey leaked in log: {record.message}"
         )

@@ -49,7 +49,6 @@ async def register_agent(req: RegisterAgentRequest):
 
     return RegisterAgentResponse(
         agent_pubkey=result["nostr_pubkey"],
-        agent_privkey=result["nostr_privkey"],
         role=req.role,
         lightning=req.lightning,
         service=req.service,
@@ -91,4 +90,3 @@ async def update_agent(req: UpdateAgentRequest):
         status="updated",
         updated_at=datetime.now(timezone.utc),
     )
-

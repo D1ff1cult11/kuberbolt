@@ -18,7 +18,6 @@ from fastapi.testclient import TestClient
 # ---------------------------------------------------------------------------
 
 FAKE_PUBKEY = "a" * 64
-FAKE_PRIVKEY = "b" * 64
 FAKE_PROFILE_EVENT_ID = "c" * 64
 FAKE_LISTING_EVENT_ID = "d" * 64
 
@@ -93,7 +92,6 @@ def _build_mock_agent() -> MagicMock:
     # register() -> dict
     agent.register = AsyncMock(return_value={
         "nostr_pubkey": FAKE_PUBKEY,
-        "nostr_privkey": FAKE_PRIVKEY,
         "profile_event_id": FAKE_PROFILE_EVENT_ID,
         "listing_event_id": FAKE_LISTING_EVENT_ID,
     })
@@ -143,6 +141,8 @@ def client(mock_agent):
         patch("api.routers.providers.get_discovery_agent", new_callable=AsyncMock) as mock_discovery,
         patch("api.routers.search.get_discovery_agent", new_callable=AsyncMock) as mock_search_discovery,
         patch("api.routers.search.filter_providers_by_tag", new_callable=AsyncMock) as mock_tag_search,
+        patch("api.main.get_discovery_agent", new_callable=AsyncMock) as mock_app_discovery,
+        patch("api.main.cleanup_discovery_agent", new_callable=AsyncMock) as mock_app_cleanup,
     ):
         # agents router: KuberboltAgent.create() -> mock_agent
         AgentClsAgents.create = AsyncMock(return_value=mock_agent)
@@ -159,6 +159,8 @@ def client(mock_agent):
         # discovery agent (providers + search routers)
         mock_discovery.return_value = mock_agent
         mock_search_discovery.return_value = mock_agent
+        mock_app_discovery.return_value = mock_agent
+        mock_app_cleanup.return_value = None
 
         # tag search — default returns SAMPLE_TAG_SEARCH_RESULTS
         mock_tag_search.return_value = SAMPLE_TAG_SEARCH_RESULTS

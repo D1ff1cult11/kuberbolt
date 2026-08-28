@@ -185,7 +185,6 @@ class KuberboltAgent:
 
         return {
             "nostr_pubkey": self.pubkey_hex,
-            "nostr_privkey": self.keys.secret_key().to_hex(),
             "profile_event_id": profile_event.id().to_hex(),
             "listing_event_id": listing_event.id().to_hex() if listing_event is not None else None,
         }
@@ -448,4 +447,3 @@ class KuberboltAgent:
 
     async def disconnect(self):
         await self.client.disconnect()
-

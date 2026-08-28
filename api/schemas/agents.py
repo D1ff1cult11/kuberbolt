@@ -43,7 +43,6 @@ class RegisterAgentRequest(BaseModel):
 
 class RegisterAgentResponse(BaseModel):
     agent_pubkey: str
-    agent_privkey: str
     role: str
     lightning: LightningCredentials | None = None
     service: ServiceInfo | None = None
@@ -51,7 +50,6 @@ class RegisterAgentResponse(BaseModel):
     listing_event_id: str | None = None
     status: Literal["registered"] = "registered"
     registered_at: datetime
-    privkey_warning: str = "Store this key now — it will not be shown again."
 
 
 class UpdateField(BaseModel):
@@ -61,7 +59,7 @@ class UpdateField(BaseModel):
 
 class UpdateAgentRequest(BaseModel):
     agent_pubkey: str
-    agent_privkey: str          # required to sign the update — see note above
+    agent_privkey: str
     updates: list[UpdateField]
     relays: list[str] | None = None
 

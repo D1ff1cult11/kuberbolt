@@ -9,6 +9,8 @@ gatekeeper/cfo
 *.test
 *.out
 
+ledger.db
+
 # Python
 __pycache__/
 *.py[cod]
@@ -35,6 +37,8 @@ MANIFEST
 
 # Environment
 .env
+examples/*_identity.json
+sdk/python/tests/nip44/my_identity.json
 .venv
 env/
 venv/
