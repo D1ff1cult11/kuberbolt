@@ -21,9 +21,9 @@ type InvoiceState int32
 
 const (
 	InvoiceOpen      InvoiceState = 0
-	InvoiceAccepted  InvoiceState = 1
-	InvoiceSettled   InvoiceState = 2
-	InvoiceCancelled InvoiceState = 3
+	InvoiceSettled   InvoiceState = 1
+	InvoiceCancelled InvoiceState = 2
+	InvoiceAccepted  InvoiceState = 3
 )
 
 // Config holds all connection parameters for a single LND node.
