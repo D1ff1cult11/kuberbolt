@@ -85,7 +85,7 @@ func TestL402Integration(t *testing.T) {
 
 	preimage := make([]byte, 32)
 	// Use deterministic preimage for the test (easier to debug).
-	copy(preimage, []byte("test-preimage-for-integration-00"))
+	copy(preimage, []byte(fmt.Sprintf("test-preimage-%d", time.Now().UnixNano())))
 	rhash := sha256.Sum256(preimage)
 	rhashBytes := rhash[:]
 	t.Logf("preimage: %s…", hex.EncodeToString(preimage)[:16])
@@ -204,7 +204,7 @@ func TestCancelHODL(t *testing.T) {
 	defer bob.Close()
 
 	preimage := make([]byte, 32)
-	copy(preimage, []byte("cancel-test-preimage-00000000000"))
+	copy(preimage, []byte(fmt.Sprintf("cancel-test-preimage-%d", time.Now().UnixNano())))
 	rhash := sha256.Sum256(preimage)
 	rhashBytes := rhash[:]
 
