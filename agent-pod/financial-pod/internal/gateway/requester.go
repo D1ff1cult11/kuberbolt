@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -20,7 +19,7 @@ import (
 const defaultPaymentTimeoutSec = 120
 
 // RequesterSide handles all outbound service calls: detects 402 challenges,
-// pays invoices, extracts preimages, and retries with credentials.
+// pays invoices, and retries with the macaroon credential.
 type RequesterSide struct {
 	lnd    ln.ClientInterface
 	budget *budget.Manager
@@ -42,14 +41,22 @@ func newRequesterSide(
 	}
 }
 
-// CallProvider executes the full client-side L402 flow against a remote provider FP:
+// CallProvider executes the corrected client-side HODL L402 flow:
 //
 //  1. Dial the provider's gRPC endpoint.
 //  2. Send unauthenticated CallService → receive 402 with invoice + macaroon.
 //  3. Check budget.
-//  4. Pay the HODL invoice via SendPaymentV2 → receive preimage on ACCEPTED.
-//  5. Retry CallService with macaroon + preimage headers.
-//  6. Return the result to the caller.
+//  4. Start paying the HODL invoice in a background goroutine.
+//     (SendPayment blocks until the provider settles — after compute succeeds.)
+//  5. Immediately retry CallService with the macaroon only (no preimage needed).
+//     The provider verifies the HTLC is ACCEPTED, runs compute, then settles.
+//  6. Wait for the payment goroutine to confirm settlement.
+//  7. Return the compute result.
+//
+// Why send the authenticated retry before waiting for SendPayment?
+// With HODL invoices the client can never know the preimage before the provider
+// settles, and the provider only settles after compute — which only runs after
+// it sees the authenticated retry. Sending the retry first breaks the deadlock.
 func (r *RequesterSide) CallProvider(
 	ctx context.Context,
 	providerAddr string,
@@ -70,63 +77,63 @@ func (r *RequesterSide) CallProvider(
 	}
 
 	r.logger.Info("received L402 challenge",
-		zap.String("payment_hash", challenge.PaymentHash[:12]+"…"),
+		zap.String("payment_hash", shortStr(challenge.PaymentHash, 12)),
 		zap.Int64("amount_msat", challenge.AmountMsat),
 	)
 
-	// 3. Check budget before paying.
+	// 3. Check budget before committing to payment.
 	if err := r.budget.CheckBudgetFor(ctx, challenge.AmountMsat); err != nil {
 		return nil, fmt.Errorf("requester: budget check: %w", err)
 	}
 
 	// 4. Record pending outgoing payment.
 	jobID := uuid.New().String()
+	macaroonID := shortStr(challenge.MacaroonHex, 16)
 	if err := r.db.RecordTransaction(&ledger.Transaction{
 		JobID:              jobID,
 		CounterpartyPubkey: providerAddr,
 		Direction:          "outgoing",
 		AmountMSat:         challenge.AmountMsat,
 		InvoicePaymentHash: challenge.PaymentHash,
-		MacaroonID:         challenge.MacaroonHex[:16],
+		MacaroonID:         macaroonID,
 		Status:             "pending",
 		CreatedAt:          time.Now(),
 	}); err != nil {
 		r.logger.Warn("failed to record pending outgoing transaction", zap.Error(err))
 	}
 
-	// 5. Pay the HODL invoice. For HODL invoices, SendPayment returns the preimage
-	//    once the provider settles — which happens AFTER compute succeeds.
-	//    The call blocks until settled or timeout.
-	r.logger.Info("paying HODL invoice",
-		zap.String("payment_hash", challenge.PaymentHash[:12]+"…"),
-	)
-	preimageBytes, err := r.lnd.SendPayment(ctx, challenge.Invoice, defaultPaymentTimeoutSec)
-	if err != nil {
-		_ = r.db.UpdateStatus(jobID, "cancelled")
-		return nil, fmt.Errorf("requester: payment failed: %w", err)
-	}
-	preimageHex := hex.EncodeToString(preimageBytes)
+	// 5. Pay the HODL invoice in a background goroutine.
+	//    We MUST NOT block here: the provider settles the HODL only after it
+	//    receives our authenticated retry (step 6 below). If we blocked here
+	//    waiting for the preimage, we'd deadlock — the provider is waiting for
+	//    us, and we'd be waiting for the provider.
+	payErrCh := make(chan error, 1)
+	go func() {
+		r.logger.Info("paying HODL invoice in background",
+			zap.String("payment_hash", shortStr(challenge.PaymentHash, 12)),
+		)
+		_, payErr := r.lnd.SendPayment(ctx, challenge.Invoice, defaultPaymentTimeoutSec)
+		payErrCh <- payErr
+	}()
 
-	r.logger.Info("payment completed, retrying with preimage",
-		zap.String("preimage_prefix", preimageHex[:8]+"…"),
-	)
-
-	// 6. Retry the original request with macaroon + preimage.
+	// 6. Immediately send the authenticated retry with the macaroon only.
+	//    No preimage is included — the provider confirms payment by watching
+	//    the LND invoice state for HTLC ACCEPTED (funds locked in channel).
 	authReq := &pb.CallServiceRequest{
 		ServiceKind: req.ServiceKind,
 		JobSpec:     req.JobSpec,
 		MacaroonHex: challenge.MacaroonHex,
-		PreimageHex: preimageHex,
 	}
 	result, err := r.sendAuthenticated(ctx, conn, authReq)
 	if err != nil {
-		// Payment was already made; log but don't mark as cancelled.
-		r.logger.Error("authenticated retry failed after payment", zap.Error(err))
+		// Provider rejected us or compute failed. Payment goroutine will
+		// eventually time out; mark ledger accordingly.
+		r.logger.Error("authenticated retry failed", zap.Error(err))
 		_ = r.db.UpdateStatus(jobID, "expired")
 		return nil, fmt.Errorf("requester: authenticated retry: %w", err)
 	}
 
-	// 7. Record spend in budget and mark ledger as settled.
+	// 7. Record spend in budget and mark ledger settled.
 	r.budget.RecordSpend(challenge.AmountMsat)
 	_ = r.db.UpdateStatus(jobID, "settled")
 
@@ -134,6 +141,22 @@ func (r *RequesterSide) CallProvider(
 		zap.String("job_id", jobID),
 		zap.Int64("amount_msat", challenge.AmountMsat),
 	)
+
+	// 8. Wait for payment goroutine. The provider already called SettleInvoice,
+	//    so SendPayment should return almost immediately here.
+	select {
+	case payErr := <-payErrCh:
+		if payErr != nil {
+			r.logger.Warn("background payment goroutine returned error",
+				zap.String("job_id", jobID),
+				zap.Error(payErr),
+			)
+		}
+	case <-ctx.Done():
+		r.logger.Warn("context cancelled while waiting for payment confirmation",
+			zap.String("job_id", jobID),
+		)
+	}
 
 	return result, nil
 }
@@ -145,15 +168,12 @@ func (r *RequesterSide) sendUnauthenticated(
 	conn *grpc.ClientConn,
 	req *pb.CallServiceRequest,
 ) (*pb.PaymentRequired, error) {
-	// We use raw gRPC Invoke since we hand-wrote the types.
 	var challenge pb.PaymentRequired
 	err := conn.Invoke(ctx, "/kuberbolt.v1.FinancialPodService/CallService", req, &challenge)
 	if err == nil {
-		// Provider responded without a challenge — unexpected but handle gracefully.
 		return nil, fmt.Errorf("requester: expected 402 challenge, got success response")
 	}
 
-	// Parse the PaymentRequired details from the gRPC status error.
 	parsed, parseErr := parsePaymentRequired(err)
 	if parseErr != nil {
 		return nil, fmt.Errorf("requester: unexpected error (not a 402): %w", err)
@@ -161,7 +181,7 @@ func (r *RequesterSide) sendUnauthenticated(
 	return parsed, nil
 }
 
-// sendAuthenticated retries the request with macaroon + preimage headers.
+// sendAuthenticated retries the request with the macaroon credential.
 func (r *RequesterSide) sendAuthenticated(
 	ctx context.Context,
 	conn *grpc.ClientConn,
@@ -176,7 +196,6 @@ func (r *RequesterSide) sendAuthenticated(
 }
 
 // parsePaymentRequired extracts PaymentRequired details from a gRPC error.
-// The provider encodes the challenge as a structured error detail.
 func parsePaymentRequired(err error) (*pb.PaymentRequired, error) {
 	pErr, ok := err.(*ErrPaymentRequired)
 	if !ok {

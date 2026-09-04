@@ -3,7 +3,6 @@ package gateway
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"testing"
 
 	"github.com/kuberbolt/financial-pod/internal/cache"
@@ -71,7 +70,8 @@ func TestL402ProviderFlow(t *testing.T) {
 	authReq := &pb.CallServiceRequest{
 		JobSpec:     []byte("test_job"),
 		MacaroonHex: pErr.MacaroonHex,
-		PreimageHex: hex.EncodeToString(cached.Preimage),
+		// No PreimageHex — provider confirms payment via LND HTLC state,
+		// not by client-supplied preimage.
 	}
 
 	authResp, authErr := provider.HandleCallService(ctx, authReq)

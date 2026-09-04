@@ -28,7 +28,8 @@ type ErrPaymentRequired struct {
 }
 
 func (e *ErrPaymentRequired) Error() string {
-	return fmt.Sprintf("402 Payment Required: %d msat, hash=%s…", e.AmountMSat, e.PaymentHash[:12])
+	return fmt.Sprintf("402 Payment Required: %d msat, hash=%s",
+		e.AmountMSat, shortStr(e.PaymentHash, 12))
 }
 
 // Server is the top-level Financial Pod that combines:

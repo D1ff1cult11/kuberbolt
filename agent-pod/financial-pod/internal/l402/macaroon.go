@@ -142,11 +142,16 @@ func (m *Manager) checkCaveat(caveat string, preimage []byte) error {
 
 		// If preimage is provided, verify SHA256(preimage) == paymentHash.
 		if preimage != nil {
+			// Guard: reject before any slice indexing. A short or zero-length
+			// preimage from a forged/malformed request would panic at [:4].
+			if len(preimage) != 32 {
+				return fmt.Errorf("invalid preimage: expected 32 bytes, got %d", len(preimage))
+			}
 			computed := sha256.Sum256(preimage)
 			computedHex := hex.EncodeToString(computed[:])
 			if computedHex != hexHash {
-				return fmt.Errorf("preimage does not match payment hash: SHA256(%x...) = %s, want %s",
-					preimage[:4], computedHex[:12], hexHash[:12])
+				// No attacker-controlled data in error strings.
+				return fmt.Errorf("preimage does not match payment hash")
 			}
 		}
 		_ = paymentHash

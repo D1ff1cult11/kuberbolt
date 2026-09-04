@@ -60,17 +60,22 @@ func newProviderSide(
 }
 
 // HandleCallService is the entry point for every inbound CallService request.
-// It implements the full L402 state machine:
+// It implements the HODL L402 state machine:
 //
-//	 No auth present  → issue 402 challenge (HODL invoice + macaroon)
-//	 Auth present     → verify macaroon + preimage → compute → settle/cancel
+//	 No macaroon → issue 402 challenge (HODL invoice + macaroon)
+//	 Macaroon present → verify HMAC + wait for HTLC ACCEPTED → compute → settle
+//
+// Note: the client does NOT send a preimage on the authenticated retry.
+// Payment is confirmed by watching the LND invoice state (HTLC ACCEPTED),
+// not by a client-supplied preimage. This avoids the deadlock that would
+// occur if the client tried to supply the preimage before compute completes.
 func (p *ProviderSide) HandleCallService(
 	ctx context.Context,
 	req *pb.CallServiceRequest,
 ) (*pb.CallServiceResponse, error) {
 
 	// ── UNAUTHENTICATED REQUEST ───────────────────────────────────────────
-	if req.MacaroonHex == "" || req.PreimageHex == "" {
+	if req.MacaroonHex == "" {
 		return nil, p.issueL402Challenge(ctx)
 	}
 
@@ -95,7 +100,7 @@ func (p *ProviderSide) issueL402Challenge(ctx context.Context) error {
 
 	p.logger.Info("issuing L402 challenge",
 		zap.String("job_id", jobID),
-		zap.String("rhash", rhashHex[:12]+"…"),
+		zap.String("rhash", shortStr(rhashHex, 12)),
 		zap.Int64("price_msat", p.servicePriceMSat),
 	)
 
@@ -136,7 +141,7 @@ func (p *ProviderSide) issueL402Challenge(ctx context.Context) error {
 		Direction:          "incoming",
 		AmountMSat:         p.servicePriceMSat,
 		InvoicePaymentHash: rhashHex,
-		MacaroonID:         macHex[:16],
+		MacaroonID:         shortStr(macHex, 16),
 		Status:             "pending",
 		CreatedAt:          time.Now(),
 	}); err != nil {
@@ -165,8 +170,13 @@ func (p *ProviderSide) issueL402Challenge(ctx context.Context) error {
 	}
 }
 
-// handleAuthenticatedRequest verifies the presented macaroon + preimage,
-// waits for the HTLC to be ACCEPTED, runs compute, and settles/cancels.
+// handleAuthenticatedRequest verifies the macaroon, waits for HTLC ACCEPTED,
+// runs compute, then settles or cancels the HODL invoice.
+//
+// Payment confirmation comes from LND invoice state (HTLC ACCEPTED = funds
+// locked in channel), NOT from a client-supplied preimage. This avoids the
+// deadlock where the client blocks on SendPayment waiting for a preimage that
+// only the provider can reveal after compute completes.
 func (p *ProviderSide) handleAuthenticatedRequest(
 	ctx context.Context,
 	req *pb.CallServiceRequest,
@@ -178,35 +188,30 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 		return nil, fmt.Errorf("provider: decode macaroon: %w", err)
 	}
 
-	// 2. Decode preimage.
-	preimage, err := hex.DecodeString(req.PreimageHex)
-	if err != nil {
-		return nil, fmt.Errorf("provider: decode preimage: %w", err)
-	}
-
-	// 3. Verify macaroon HMAC chain + time caveat + preimage↔hash binding.
-	if err := p.macManager.VerifyWithPreimage(macBytes, preimage); err != nil {
+	// 2. Verify macaroon HMAC chain + time caveat.
+	//    We do NOT verify a preimage here — payment is confirmed via LND state.
+	if err := p.macManager.Verify(macBytes); err != nil {
 		return nil, fmt.Errorf("provider: macaroon verification failed: %w", err)
 	}
 
-	// 4. Extract the payment hash from the macaroon's account caveat.
+	// 3. Extract the payment hash from the macaroon's account caveat.
 	rhashBytes, err := p.macManager.ExtractPaymentHash(macBytes)
 	if err != nil {
 		return nil, fmt.Errorf("provider: extract payment hash: %w", err)
 	}
 	rhashHex := hex.EncodeToString(rhashBytes)
 
-	// 5. Look up the cached entry (preimage + invoice) by rhash.
+	// 4. Look up the cached entry (preimage + invoice) by rhash.
 	cached := p.invoices.GetByRHash(rhashHex)
 	if cached == nil {
-		return nil, fmt.Errorf("provider: unknown or expired payment hash %s…", rhashHex[:12])
+		return nil, fmt.Errorf("provider: unknown or expired payment hash %s", shortStr(rhashHex, 12))
 	}
 
 	p.logger.Info("processing authenticated request",
-		zap.String("rhash", rhashHex[:12]+"…"),
+		zap.String("rhash", shortStr(rhashHex, 12)),
 	)
 
-	// 6. Subscribe to invoice state — wait for HTLC ACCEPTED (funds locked).
+	// 5. Subscribe to invoice state — wait for HTLC ACCEPTED (funds locked).
 	updates, err := p.lnd.SubscribeSingleInvoice(ctx, rhashBytes)
 	if err != nil {
 		return nil, fmt.Errorf("provider: subscribe invoice: %w", err)
