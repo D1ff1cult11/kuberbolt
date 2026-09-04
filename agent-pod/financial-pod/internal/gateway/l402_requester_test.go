@@ -46,12 +46,12 @@ func TestL402RequesterFlow(t *testing.T) {
 		Invoice:     "test_hodl_invoice",
 		MacaroonHex: hex.EncodeToString(macBytes),
 		PaymentHash: rhashHex,
-		AmountMSat:  2000,
+		AmountMsat:  2000,
 		ExpirySec:   300,
 	}
 
 	// 1. Budget check
-	if err := requester.budget.CheckBudgetFor(ctx, challenge.AmountMSat); err != nil {
+	if err := requester.budget.CheckBudgetFor(ctx, challenge.AmountMsat); err != nil {
 		t.Fatalf("unexpected budget error: %v", err)
 	}
 
@@ -72,7 +72,7 @@ func TestL402RequesterFlow(t *testing.T) {
 	}
 
 	// 4. Update budget
-	requester.budget.RecordSpend(challenge.AmountMSat)
+	requester.budget.RecordSpend(challenge.AmountMsat)
 
 	if requester.budget.GetDailySpent() != 2000 {
 		t.Errorf("expected daily spend 2000, got %d", requester.budget.GetDailySpent())

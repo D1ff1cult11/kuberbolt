@@ -202,11 +202,11 @@ func (s *Server) PayHoldInvoice(ctx context.Context, req *pb.PayHoldInvoiceReque
 // GetBudgetInfo returns current budget counters.
 func (s *Server) GetBudgetInfo(_ context.Context, _ *pb.GetBudgetInfoRequest) (*pb.GetBudgetInfoResponse, error) {
 	return &pb.GetBudgetInfoResponse{
-		DailyLimitMSat:   s.cfg.Budget.DailyLimitMSat,
-		DailySpentMSat:   s.budget.GetDailySpent(),
-		MonthlyLimitMSat: s.cfg.Budget.MonthlyLimitMSat,
-		MonthlySpentMSat: s.budget.GetMonthlySpent(),
-		AvailableMSat:    s.budget.GetDailyAvailable(),
+		DailyLimitMsat:   s.cfg.Budget.DailyLimitMSat,
+		DailySpentMsat:   s.budget.GetDailySpent(),
+		MonthlyLimitMsat: s.cfg.Budget.MonthlyLimitMSat,
+		MonthlySpentMsat: s.budget.GetMonthlySpent(),
+		AvailableMsat:    s.budget.GetDailyAvailable(),
 	}, nil
 }
 

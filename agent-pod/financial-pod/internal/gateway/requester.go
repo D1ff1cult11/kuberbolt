@@ -71,11 +71,11 @@ func (r *RequesterSide) CallProvider(
 
 	r.logger.Info("received L402 challenge",
 		zap.String("payment_hash", challenge.PaymentHash[:12]+"…"),
-		zap.Int64("amount_msat", challenge.AmountMSat),
+		zap.Int64("amount_msat", challenge.AmountMsat),
 	)
 
 	// 3. Check budget before paying.
-	if err := r.budget.CheckBudgetFor(ctx, challenge.AmountMSat); err != nil {
+	if err := r.budget.CheckBudgetFor(ctx, challenge.AmountMsat); err != nil {
 		return nil, fmt.Errorf("requester: budget check: %w", err)
 	}
 
@@ -85,7 +85,7 @@ func (r *RequesterSide) CallProvider(
 		JobID:              jobID,
 		CounterpartyPubkey: providerAddr,
 		Direction:          "outgoing",
-		AmountMSat:         challenge.AmountMSat,
+		AmountMSat:         challenge.AmountMsat,
 		InvoicePaymentHash: challenge.PaymentHash,
 		MacaroonID:         challenge.MacaroonHex[:16],
 		Status:             "pending",
@@ -127,12 +127,12 @@ func (r *RequesterSide) CallProvider(
 	}
 
 	// 7. Record spend in budget and mark ledger as settled.
-	r.budget.RecordSpend(challenge.AmountMSat)
+	r.budget.RecordSpend(challenge.AmountMsat)
 	_ = r.db.UpdateStatus(jobID, "settled")
 
 	r.logger.Info("CallProvider completed successfully",
 		zap.String("job_id", jobID),
-		zap.Int64("amount_msat", challenge.AmountMSat),
+		zap.Int64("amount_msat", challenge.AmountMsat),
 	)
 
 	return result, nil
@@ -186,7 +186,7 @@ func parsePaymentRequired(err error) (*pb.PaymentRequired, error) {
 		Invoice:     pErr.Invoice,
 		MacaroonHex: pErr.MacaroonHex,
 		PaymentHash: pErr.PaymentHash,
-		AmountMSat:  pErr.AmountMSat,
+		AmountMsat:  pErr.AmountMSat,
 		ExpirySec:   pErr.ExpirySec,
 	}, nil
 }
