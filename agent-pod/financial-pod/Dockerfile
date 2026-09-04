@@ -1,21 +1,16 @@
 FROM golang:1.21-bullseye AS builder
 
 WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Initialize go module if it doesn't exist
-RUN go mod init github.com/kuberbolt/gatekeeper || true
-RUN go get google.golang.org/grpc
-
-COPY fp/ /app/fp/
-# In a real scenario, copy protos and generate them here
-# COPY proto/ /app/proto/
-
-# Build
-RUN go build -o /app/bin/fp ./fp/main.go
+COPY . .
+RUN CGO_ENABLED=1 go build -o /app/bin/financialpod ./cmd/financialpod/
 
 FROM debian:bullseye-slim
+RUN apt-get update && apt-get install -y ca-certificates sqlite3 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/bin/fp /usr/local/bin/fp
+COPY --from=builder /app/bin/financialpod /usr/local/bin/financialpod
 
-CMD ["fp"]
+ENTRYPOINT ["financialpod"]
