@@ -72,6 +72,19 @@ func (c *InvoiceCache) Delete(jobID string) {
 	delete(c.items, jobID)
 }
 
+// DeleteByRHash removes the entry whose RHashHex matches. Used by the provider
+// after settlement when only the rhash is known (not the internal jobID).
+func (c *InvoiceCache) DeleteByRHash(rhashHex string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for k, e := range c.items {
+		if e.RHashHex == rhashHex {
+			delete(c.items, k)
+			return
+		}
+	}
+}
+
 // CleanupExpired removes all expired entries. Called by the background task goroutine.
 func (c *InvoiceCache) CleanupExpired() int {
 	c.mu.Lock()

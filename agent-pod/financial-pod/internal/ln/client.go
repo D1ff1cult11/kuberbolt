@@ -146,6 +146,18 @@ type InvoiceUpdate struct {
 	Err     error
 }
 
+// ClientInterface defines the LND operations the Financial Pod depends on.
+// Using an interface here (instead of *Client directly) allows the gateway
+// layer to be tested with a mock without a live LND connection.
+type ClientInterface interface {
+	AddHoldInvoice(ctx context.Context, rhash []byte, amountMSat int64, expirySec int64, memo string) (string, error)
+	SubscribeSingleInvoice(ctx context.Context, rhash []byte) (<-chan InvoiceUpdate, error)
+	SettleInvoice(ctx context.Context, preimage []byte) error
+	CancelInvoice(ctx context.Context, paymentHash []byte) error
+	SendPayment(ctx context.Context, paymentRequest string, timeoutSec int32) ([]byte, error)
+	Close() error
+}
+
 // SubscribeSingleInvoice watches a specific invoice identified by rhash and
 // sends state transitions over the returned channel. The caller must drain
 // the channel; it is closed when ctx is cancelled or a terminal state is reached.

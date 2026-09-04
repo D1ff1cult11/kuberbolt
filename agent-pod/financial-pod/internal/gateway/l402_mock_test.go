@@ -56,6 +56,8 @@ func (m *MockLNClient) SendPayment(ctx context.Context, paymentRequest string, t
 	return []byte("mock_preimage"), nil
 }
 
+func (m *MockLNClient) Close() error { return nil }
+
 func setupTestDB(t *testing.T) *ledger.DB {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test_ledger.db")

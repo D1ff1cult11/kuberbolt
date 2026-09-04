@@ -38,7 +38,7 @@ func (e *ErrPaymentRequired) Error() string {
 type Server struct {
 	cfg       *config.Config
 	logger    *zap.Logger
-	lnd       *ln.Client
+	lnd       ln.ClientInterface
 	db        *ledger.DB
 	budget    *budget.Manager
 	invoices  *cache.InvoiceCache

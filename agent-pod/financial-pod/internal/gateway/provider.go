@@ -30,7 +30,7 @@ const defaultHTLCTimeoutBlocks = 40
 // ProviderSide handles all inbound service requests: issuing L402 challenges,
 // watching for payment, running compute, and settling or cancelling the HODL.
 type ProviderSide struct {
-	lnd        *ln.Client
+	lnd        ln.ClientInterface
 	macManager *l402.Manager
 	invoices   *cache.InvoiceCache
 	db         *ledger.DB
@@ -42,7 +42,7 @@ type ProviderSide struct {
 }
 
 func newProviderSide(
-	lnd *ln.Client,
+	lnd ln.ClientInterface,
 	macManager *l402.Manager,
 	invoices *cache.InvoiceCache,
 	db *ledger.DB,
@@ -250,7 +250,7 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 				zap.Error(err))
 		}
 		_ = p.db.UpdateStatus(cached.RHashHex, "cancelled")
-		p.invoices.Delete(cached.RHashHex)
+		p.invoices.DeleteByRHash(cached.RHashHex)
 		return nil, fmt.Errorf("provider: compute failed, invoice cancelled: %w", computeErr)
 	}
 
@@ -270,7 +270,7 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 
 	// 9. Update ledger to settled.
 	_ = p.db.UpdateStatus(cached.RHashHex, "settled")
-	p.invoices.Delete(cached.RHashHex)
+	p.invoices.DeleteByRHash(cached.RHashHex)
 
 	return &pb.CallServiceResponse{
 		OutputData: result,

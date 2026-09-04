@@ -22,14 +22,14 @@ const defaultPaymentTimeoutSec = 120
 // RequesterSide handles all outbound service calls: detects 402 challenges,
 // pays invoices, extracts preimages, and retries with credentials.
 type RequesterSide struct {
-	lnd    *ln.Client
+	lnd    ln.ClientInterface
 	budget *budget.Manager
 	db     *ledger.DB
 	logger *zap.Logger
 }
 
 func newRequesterSide(
-	lnd *ln.Client,
+	lnd ln.ClientInterface,
 	bm *budget.Manager,
 	db *ledger.DB,
 	logger *zap.Logger,
