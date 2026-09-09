@@ -125,6 +125,7 @@ func (p *ProviderSide) issueL402Challenge(ctx context.Context) error {
 
 	// 4. Store the preimage (secret) in the in-memory cache.
 	p.invoices.Set(jobID, &cache.Entry{
+		JobID:         jobID,
 		Invoice:       payReq,
 		RHash:         rhashBytes,
 		RHashHex:      rhashHex,
@@ -240,7 +241,7 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 	}
 
 	p.logger.Info("HTLC accepted — funds locked, running compute",
-		zap.String("rhash", rhashHex[:12]+"…"),
+		zap.String("rhash", shortStr(rhashHex, 12)),
 	)
 
 	// 7. Run compute. On failure → cancel invoice → client gets refund.
@@ -248,13 +249,15 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 	if computeErr != nil {
 		p.logger.Error("compute failed, cancelling HODL invoice",
 			zap.Error(computeErr),
-			zap.String("rhash", rhashHex[:12]+"…"),
+			zap.String("rhash", shortStr(rhashHex, 12)),
 		)
 		if err := p.lnd.CancelInvoice(ctx, rhashBytes); err != nil {
 			p.logger.Error("failed to cancel invoice after compute failure",
 				zap.Error(err))
 		}
-		_ = p.db.UpdateStatus(cached.RHashHex, "cancelled")
+		if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "cancelled"); err != nil {
+			p.logger.Warn("failed to update ledger status to cancelled", zap.Error(err))
+		}
 		p.invoices.DeleteByRHash(cached.RHashHex)
 		return nil, fmt.Errorf("provider: compute failed, invoice cancelled: %w", computeErr)
 	}
@@ -263,18 +266,20 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 	if err := p.lnd.SettleInvoice(ctx, cached.Preimage); err != nil {
 		p.logger.Error("failed to settle invoice after successful compute",
 			zap.Error(err),
-			zap.String("rhash", rhashHex[:12]+"…"),
+			zap.String("rhash", shortStr(rhashHex, 12)),
 		)
 		// We cannot cancel here — compute was done. Log and return result anyway.
 		// A retry of SettleInvoice should be added in production.
 	} else {
 		p.logger.Info("HODL invoice settled — funds received",
-			zap.String("rhash", rhashHex[:12]+"…"),
+			zap.String("rhash", shortStr(rhashHex, 12)),
 		)
 	}
 
 	// 9. Update ledger to settled.
-	_ = p.db.UpdateStatus(cached.RHashHex, "settled")
+	if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "settled"); err != nil {
+		p.logger.Warn("failed to update ledger status to settled", zap.Error(err))
+	}
 	p.invoices.DeleteByRHash(cached.RHashHex)
 
 	return &pb.CallServiceResponse{
