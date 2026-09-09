@@ -9,7 +9,7 @@ from api.dependencies import DEFAULT_RELAYS
 from api.schemas.agents import RegisterAgentRequest, RegisterAgentResponse, UpdateAgentRequest, UpdateAgentResponse
 
 
-from nostr_sdk_wrapper.agent import AgentNotRegisteredError as KuberboltAgentNotRegisteredError, KuberboltAgent
+from sdk.python.nostr_sdk_wrapper.agent import AgentNotRegisteredError as KuberboltAgentNotRegisteredError, KuberboltAgent
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 

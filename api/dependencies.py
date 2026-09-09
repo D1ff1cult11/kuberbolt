@@ -4,9 +4,10 @@ from pathlib import Path
 
 
 try:
-    from nostr_sdk_wrapper.agent import KuberboltAgent
+    from sdk.python.nostr_sdk_wrapper.agent import KuberboltAgent
 except ImportError:
-    from kuberbolt_nostr.agent import KuberboltAgent
+    # Fallback if installed globally
+    from nostr_sdk_wrapper.agent import KuberboltAgent
 
 # DEFAULT_RELAYS constant
 env_relays = os.getenv("DEFAULT_RELAYS")

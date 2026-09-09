@@ -12,7 +12,7 @@ from api.schemas.search import SearchProviderItem, SearchProvidersResponse
 
 # Ensure the client discovery module is importable
 
-from kuberbolt.discovery.nostr.filter_providers_by_tag import filter_providers_by_tag
+from client.kuberbolt.discovery.nostr.filter_providers_by_tag import filter_providers_by_tag
 
 router = APIRouter(prefix="/api/agents", tags=["search"])
 
