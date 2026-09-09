@@ -1,10 +1,15 @@
-import sys
 import time
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from api.agent_registry import get_agent_registry
 from api.schemas.requests import RequestEndpointRequest, RequestEndpointResponse
+
+
+try:
+    from nostr_sdk_wrapper.agent import KuberboltAgent
+except ImportError:
+    from kuberbolt_nostr.agent import KuberboltAgent
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 

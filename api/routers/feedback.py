@@ -1,10 +1,13 @@
-import sys
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
 from api.agent_registry import get_agent_registry
 from api.schemas.feedback import CreateFeedbackRequest, CreateFeedbackResponse
+
+
+from nostr_sdk_wrapper.agent import KuberboltAgent
+
 
 router = APIRouter(prefix="/api/feedback", tags=["feedback"])
 
