@@ -1,10 +1,10 @@
-import sys
 import time
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from api.agent_registry import get_agent_registry
 from api.schemas.requests import RequestEndpointRequest, RequestEndpointResponse
+
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
