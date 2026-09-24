@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from tests.conftest import FAKE_PUBKEY
+from tests.conftest import FAKE_PUBKEY, SESSION_TOKEN
 
 client = TestClient(app)
 
@@ -113,6 +113,7 @@ def test_redaction_logging(caplog):
             "payload": {"action": "ping"},
             "timeout_seconds": 1,
         },
+        headers={"Authorization": f"Bearer {SESSION_TOKEN}"},
     )
     for record in caplog.records:
         if "Incoming Request" in record.message:
@@ -128,7 +129,7 @@ def test_unregistered_agent_pubkey():
             "payload": {"action": "ping"},
         },
     )
-    assert response.status_code == 404
+    assert response.status_code == 401
 
 
 def test_discover_providers():

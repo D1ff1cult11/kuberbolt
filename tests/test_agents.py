@@ -35,6 +35,7 @@ def test_register_merchant_with_service(client, mock_agent):
     assert data["agent_pubkey"] == FAKE_PUBKEY
     assert "agent_privkey" in data
     assert "agent_nsec" in data
+    assert "session_token" in data
     assert response.headers.get("X-Key-Warning") == (
         "This response contains a private key. Store it securely and never share it."
     )

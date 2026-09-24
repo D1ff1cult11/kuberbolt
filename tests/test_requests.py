@@ -3,23 +3,23 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
-from tests.conftest import FAKE_PUBKEY
+from tests.conftest import FAKE_PUBKEY, SESSION_TOKEN
 
 
 # ---------------------------------------------------------------------------
-# Unregistered agent -> 404 Not Found
+# Unknown agent without a valid token -> 401 Unauthorized
 # ---------------------------------------------------------------------------
 
 def test_unregistered_agent_returns_404(client, mock_agent):
-    """unregistered agent_pubkey -> 404."""
+    """An unknown public key cannot authenticate with another agent's token."""
     response = client.post("/api/requests", json={
         "agent_pubkey": "unregistered_" + "0" * 52,
         "provider_pubkey": "0" * 64,
         "payload": {"action": "ping"},
         "timeout_seconds": 5,
-    })
+    }, headers={"Authorization": f"Bearer {SESSION_TOKEN}"})
 
-    assert response.status_code == 404
+    assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +35,7 @@ def test_registered_agent_with_reply(client, mock_agent):
         "provider_pubkey": "0" * 64,
         "payload": {"action": "ping"},
         "timeout_seconds": 5,
-    })
+    }, headers={"Authorization": f"Bearer {SESSION_TOKEN}"})
 
     assert response.status_code == 200
     data = response.json()
@@ -57,7 +57,7 @@ def test_registered_agent_no_reply_timeout(client, mock_agent):
         "provider_pubkey": "0" * 64,
         "payload": {"action": "ping"},
         "timeout_seconds": 1,
-    })
+    }, headers={"Authorization": f"Bearer {SESSION_TOKEN}"})
 
     assert response.status_code == 200
     data = response.json()
