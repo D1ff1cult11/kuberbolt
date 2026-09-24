@@ -1,26 +1,22 @@
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from api.agent_registry import get_agent_registry
+from api.dependencies import authenticate_agent
 from api.schemas.feedback import CreateFeedbackRequest, CreateFeedbackResponse
 
 
-from nostr_sdk_wrapper.agent import KuberboltAgent
-
-
 router = APIRouter(prefix="/api/feedback", tags=["feedback"])
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @router.post("", response_model=CreateFeedbackResponse, status_code=201)
-async def create_feedback(req: CreateFeedbackRequest):
-    registry = await get_agent_registry()
-    agent = await registry.get(req.reviewer_pubkey)
-    if agent is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Agent '{req.reviewer_pubkey}' not registered in session",
-        )
+async def create_feedback(
+    req: CreateFeedbackRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    agent = await authenticate_agent(req.reviewer_pubkey, credentials)
 
     event = await agent.publish_feedback(
         counterparty_pubkey=req.counterparty_pubkey,

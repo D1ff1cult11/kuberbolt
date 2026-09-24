@@ -1,23 +1,22 @@
 import time
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from api.agent_registry import get_agent_registry
+from api.dependencies import authenticate_agent
 from api.schemas.requests import RequestEndpointRequest, RequestEndpointResponse
 
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @router.post("", response_model=RequestEndpointResponse)
-async def request_endpoint(req: RequestEndpointRequest):
-    registry = await get_agent_registry()
-    agent = await registry.get(req.agent_pubkey)
-    if agent is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Agent '{req.agent_pubkey}' not registered in session",
-        )
+async def request_endpoint(
+    req: RequestEndpointRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    agent = await authenticate_agent(req.agent_pubkey, credentials)
 
     start_time = time.perf_counter()
     event = await agent.send_handshake(req.provider_pubkey, req.payload)
