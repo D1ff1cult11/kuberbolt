@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package kuberbolt.discovery.v1;
+
+// Go stubs land in the daemon's internal package, matching the existing
+// financial-pod convention.
+option go_package = "github.com/kuberbolt/agent-pod/daemon/internal/pb;pb";
+
+// ──────────────────────────────────────────────────────────────────────────────
+// NodeManager — discovery-layer service.
+//
+// The Python SDK ("scout") discovers peer endpoints (currently hardcoded
+// dummies; Nostr relay integration comes later) and hands them to the Go
+// daemon ("engine") via this RPC.
+// ──────────────────────────────────────────────────────────────────────────────
+service NodeManager {
+  // HandoverPeers delivers discovered peer endpoints to the engine.
+  // For the bootstrap phase this is fire-and-forget: the engine logs the
+  // endpoints and returns an ack.  Real processing logic will be added later.
+  rpc HandoverPeers(PeerHandoverRequest) returns (PeerHandoverResponse);
+}
+
+// Request carrying two discovered peer endpoints.
+message PeerHandoverRequest {
+  // IP:Port of Peer A (e.g. "192.168.1.10:8001").
+  string peer_a_endpoint = 1;
+
+  // IP:Port of Peer B (e.g. "10.0.0.5:9002").
+  string peer_b_endpoint = 2;
+}
+
+// Acknowledgement from the engine.
+message PeerHandoverResponse {
+  // true if the engine accepted and logged the endpoints.
+  bool success = 1;
+
+  // Human-readable status message.
+  string message = 2;
+}
