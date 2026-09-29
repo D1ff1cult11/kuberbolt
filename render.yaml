@@ -1,0 +1,17 @@
+version: "1"
+services:
+  - type: web
+    name: kuberbolt-dashboard
+    runtime: static
+    repo: https://github.com/D1ff1cult11/kuberbolt
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: commit
+    rootDir: frontend
+    envVars:
+      - key: VITE_API_URL
+        value: https://your-backend-api-url.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
