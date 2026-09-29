@@ -43,6 +43,7 @@ class RegisterAgentRequest(BaseModel):
 
 class RegisterAgentResponse(BaseModel):
     agent_pubkey: str
+    session_token: str
     agent_privkey: str  # hex-encoded Nostr secret key
     agent_nsec: str     # bech32-encoded Nostr secret key 
     role: str

@@ -1,17 +1,20 @@
 from datetime import datetime, timezone
 import os
+import secrets
 import tempfile
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from api.agent_registry import get_agent_registry
-from api.dependencies import DEFAULT_RELAYS
+from api.dependencies import DEFAULT_RELAYS, authenticate_agent
 from api.schemas.agents import RegisterAgentRequest, RegisterAgentResponse, UpdateAgentRequest, UpdateAgentResponse
 
 
-from nostr_sdk_wrapper.agent import AgentNotRegisteredError as KuberboltAgentNotRegisteredError, KuberboltAgent
+from sdk.python.nostr_sdk_wrapper.agent import AgentNotRegisteredError as KuberboltAgentNotRegisteredError, KuberboltAgent
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @router.post("/register", response_model=RegisterAgentResponse, status_code=201)
@@ -43,8 +46,9 @@ async def register_agent(req: RegisterAgentRequest, response: Response):
             )
             result["profile_event_id"] = profile_event.id().to_hex()
 
+    session_token = secrets.token_urlsafe(32)
     registry = await get_agent_registry()
-    await registry.register(agent)
+    await registry.register(agent, session_token)
 
     response.headers["X-Key-Warning"] = (
         "This response contains a private key. Store it securely and never share it."
@@ -52,6 +56,7 @@ async def register_agent(req: RegisterAgentRequest, response: Response):
 
     return RegisterAgentResponse(
         agent_pubkey=result["nostr_pubkey"],
+        session_token=session_token,
         agent_privkey=secret_key_hex,
         agent_nsec=secret_key_bech32,
         role=req.role,
@@ -65,14 +70,11 @@ async def register_agent(req: RegisterAgentRequest, response: Response):
 
 
 @router.patch("/update", response_model=UpdateAgentResponse)
-async def update_agent(req: UpdateAgentRequest):
-    registry = await get_agent_registry()
-    agent = await registry.get(req.agent_pubkey)
-    if agent is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Agent '{req.agent_pubkey}' not registered in session",
-        )
+async def update_agent(
+    req: UpdateAgentRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    agent = await authenticate_agent(req.agent_pubkey, credentials)
 
     try:
         result = await agent.update_agent(

@@ -16,8 +16,9 @@ def test_generate_and_persist_identity():
 
         assert keys1.public_key().to_hex() == keys2.public_key().to_hex()
 
-        mode = oct(os.stat(identity_path).st_mode)[-3:]
-        assert mode == "600"
+        if os.name != "nt":
+            mode = oct(os.stat(identity_path).st_mode)[-3:]
+            assert mode == "600"
 
 
 def test_profile_metadata_builds_cleanly():

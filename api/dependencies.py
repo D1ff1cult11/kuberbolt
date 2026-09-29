@@ -1,12 +1,17 @@
 import os
+from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 import tempfile
 from pathlib import Path
 
+from api.agent_registry import get_agent_registry
+
 
 try:
-    from nostr_sdk_wrapper.agent import KuberboltAgent
+    from sdk.python.nostr_sdk_wrapper.agent import KuberboltAgent
 except ImportError:
-    from kuberbolt_nostr.agent import KuberboltAgent
+    # Fallback if installed globally
+    from nostr_sdk_wrapper.agent import KuberboltAgent
 
 # DEFAULT_RELAYS constant
 env_relays = os.getenv("DEFAULT_RELAYS")
@@ -51,3 +56,16 @@ async def cleanup_discovery_agent():
         except Exception:
             pass
         _tmp_dir = None
+
+
+async def authenticate_agent(
+    pubkey: str, credentials: HTTPAuthorizationCredentials | None
+):
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+
+    registry = await get_agent_registry()
+    agent = await registry.authenticate(pubkey, credentials.credentials)
+    if agent is None:
+        raise HTTPException(status_code=401, detail="Invalid bearer token")
+    return agent

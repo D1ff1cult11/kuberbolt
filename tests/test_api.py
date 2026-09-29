@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from tests.conftest import FAKE_PUBKEY
+from tests.conftest import FAKE_PUBKEY, SESSION_TOKEN
 
 client = TestClient(app)
 
@@ -103,19 +103,24 @@ def test_register_merchant():
 
 def test_redaction_logging(caplog):
     caplog.set_level(logging.INFO)
+    test_key = "e" * 64
     dummy_pubkey = "b" * 64
 
     response = client.post(
         "/api/requests",
         json={
             "agent_pubkey": FAKE_PUBKEY,
+            "agent_privkey": test_key,
             "provider_pubkey": dummy_pubkey,
             "payload": {"action": "ping"},
             "timeout_seconds": 1,
         },
+        headers={"Authorization": f"Bearer {SESSION_TOKEN}"},
     )
     for record in caplog.records:
+        assert test_key not in record.message
         if "Incoming Request" in record.message:
+            assert "[REDACTED]" in record.message
             assert "agent_pubkey" in record.message
 
 
@@ -128,7 +133,7 @@ def test_unregistered_agent_pubkey():
             "payload": {"action": "ping"},
         },
     )
-    assert response.status_code == 404
+    assert response.status_code == 401
 
 
 def test_discover_providers():

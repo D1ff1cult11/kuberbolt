@@ -8,6 +8,7 @@ connections are ever attempted.
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
+import hashlib
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,6 +20,7 @@ from api.agent_registry import _registry
 # ---------------------------------------------------------------------------
 
 FAKE_PUBKEY = "a" * 64
+SESSION_TOKEN = "test-session-token"
 FAKE_PROFILE_EVENT_ID = "c" * 64
 FAKE_LISTING_EVENT_ID = "d" * 64
 
@@ -156,6 +158,7 @@ def client(mock_agent):
     every import boundary so no network access occurs.
     """
     _registry._agents[FAKE_PUBKEY] = mock_agent
+    _registry._token_hashes[FAKE_PUBKEY] = hashlib.sha256(SESSION_TOKEN.encode()).digest()
 
     with (
         patch("api.routers.agents.KuberboltAgent") as AgentClsAgents,
