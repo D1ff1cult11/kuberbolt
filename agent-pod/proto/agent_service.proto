@@ -19,6 +19,19 @@ service FinancialPodService {
 
   // GetBudgetInfo returns current daily/monthly spend counters.
   rpc GetBudgetInfo(GetBudgetInfoRequest) returns (GetBudgetInfoResponse);
+
+  // GetChannelInfo returns readiness data (e.g. LND chain sync status) for health checks.
+  rpc GetChannelInfo(GetChannelInfoRequest) returns (GetChannelInfoResponse);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Readiness & Health messages
+// ──────────────────────────────────────────────────────────────────────────────
+
+message GetChannelInfoRequest {}
+
+message GetChannelInfoResponse {
+  bool synced_to_chain = 1;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

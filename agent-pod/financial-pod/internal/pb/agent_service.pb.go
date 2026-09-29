@@ -21,6 +21,86 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type GetChannelInfoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetChannelInfoRequest) Reset() {
+	*x = GetChannelInfoRequest{}
+	mi := &file_agent_service_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetChannelInfoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetChannelInfoRequest) ProtoMessage() {}
+
+func (x *GetChannelInfoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_service_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetChannelInfoRequest.ProtoReflect.Descriptor instead.
+func (*GetChannelInfoRequest) Descriptor() ([]byte, []int) {
+	return file_agent_service_proto_rawDescGZIP(), []int{0}
+}
+
+type GetChannelInfoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SyncedToChain bool                   `protobuf:"varint,1,opt,name=synced_to_chain,json=syncedToChain,proto3" json:"synced_to_chain,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetChannelInfoResponse) Reset() {
+	*x = GetChannelInfoResponse{}
+	mi := &file_agent_service_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetChannelInfoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetChannelInfoResponse) ProtoMessage() {}
+
+func (x *GetChannelInfoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_service_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetChannelInfoResponse.ProtoReflect.Descriptor instead.
+func (*GetChannelInfoResponse) Descriptor() ([]byte, []int) {
+	return file_agent_service_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *GetChannelInfoResponse) GetSyncedToChain() bool {
+	if x != nil {
+		return x.SyncedToChain
+	}
+	return false
+}
+
 type CallServiceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Kind of service being requested (e.g. "text-completion", "image-gen").
@@ -37,7 +117,7 @@ type CallServiceRequest struct {
 
 func (x *CallServiceRequest) Reset() {
 	*x = CallServiceRequest{}
-	mi := &file_agent_service_proto_msgTypes[0]
+	mi := &file_agent_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -49,7 +129,7 @@ func (x *CallServiceRequest) String() string {
 func (*CallServiceRequest) ProtoMessage() {}
 
 func (x *CallServiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_service_proto_msgTypes[0]
+	mi := &file_agent_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +142,7 @@ func (x *CallServiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallServiceRequest.ProtoReflect.Descriptor instead.
 func (*CallServiceRequest) Descriptor() ([]byte, []int) {
-	return file_agent_service_proto_rawDescGZIP(), []int{0}
+	return file_agent_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CallServiceRequest) GetServiceKind() string {
@@ -107,7 +187,7 @@ type CallServiceResponse struct {
 
 func (x *CallServiceResponse) Reset() {
 	*x = CallServiceResponse{}
-	mi := &file_agent_service_proto_msgTypes[1]
+	mi := &file_agent_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -119,7 +199,7 @@ func (x *CallServiceResponse) String() string {
 func (*CallServiceResponse) ProtoMessage() {}
 
 func (x *CallServiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_service_proto_msgTypes[1]
+	mi := &file_agent_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -132,7 +212,7 @@ func (x *CallServiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallServiceResponse.ProtoReflect.Descriptor instead.
 func (*CallServiceResponse) Descriptor() ([]byte, []int) {
-	return file_agent_service_proto_rawDescGZIP(), []int{1}
+	return file_agent_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CallServiceResponse) GetOutputData() []byte {
@@ -177,7 +257,7 @@ type PaymentRequired struct {
 
 func (x *PaymentRequired) Reset() {
 	*x = PaymentRequired{}
-	mi := &file_agent_service_proto_msgTypes[2]
+	mi := &file_agent_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -189,7 +269,7 @@ func (x *PaymentRequired) String() string {
 func (*PaymentRequired) ProtoMessage() {}
 
 func (x *PaymentRequired) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_service_proto_msgTypes[2]
+	mi := &file_agent_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -202,7 +282,7 @@ func (x *PaymentRequired) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaymentRequired.ProtoReflect.Descriptor instead.
 func (*PaymentRequired) Descriptor() ([]byte, []int) {
-	return file_agent_service_proto_rawDescGZIP(), []int{2}
+	return file_agent_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *PaymentRequired) GetInvoice() string {
@@ -250,7 +330,7 @@ type PayHoldInvoiceRequest struct {
 
 func (x *PayHoldInvoiceRequest) Reset() {
 	*x = PayHoldInvoiceRequest{}
-	mi := &file_agent_service_proto_msgTypes[3]
+	mi := &file_agent_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -262,7 +342,7 @@ func (x *PayHoldInvoiceRequest) String() string {
 func (*PayHoldInvoiceRequest) ProtoMessage() {}
 
 func (x *PayHoldInvoiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_service_proto_msgTypes[3]
+	mi := &file_agent_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -275,7 +355,7 @@ func (x *PayHoldInvoiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PayHoldInvoiceRequest.ProtoReflect.Descriptor instead.
 func (*PayHoldInvoiceRequest) Descriptor() ([]byte, []int) {
-	return file_agent_service_proto_rawDescGZIP(), []int{3}
+	return file_agent_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *PayHoldInvoiceRequest) GetInvoice() string {
@@ -298,7 +378,7 @@ type PayHoldInvoiceResponse struct {
 
 func (x *PayHoldInvoiceResponse) Reset() {
 	*x = PayHoldInvoiceResponse{}
-	mi := &file_agent_service_proto_msgTypes[4]
+	mi := &file_agent_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -310,7 +390,7 @@ func (x *PayHoldInvoiceResponse) String() string {
 func (*PayHoldInvoiceResponse) ProtoMessage() {}
 
 func (x *PayHoldInvoiceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_service_proto_msgTypes[4]
+	mi := &file_agent_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -323,7 +403,7 @@ func (x *PayHoldInvoiceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PayHoldInvoiceResponse.ProtoReflect.Descriptor instead.
 func (*PayHoldInvoiceResponse) Descriptor() ([]byte, []int) {
-	return file_agent_service_proto_rawDescGZIP(), []int{4}
+	return file_agent_service_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PayHoldInvoiceResponse) GetSuccess() bool {
@@ -355,7 +435,7 @@ type GetBudgetInfoRequest struct {
 
 func (x *GetBudgetInfoRequest) Reset() {
 	*x = GetBudgetInfoRequest{}
-	mi := &file_agent_service_proto_msgTypes[5]
+	mi := &file_agent_service_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -367,7 +447,7 @@ func (x *GetBudgetInfoRequest) String() string {
 func (*GetBudgetInfoRequest) ProtoMessage() {}
 
 func (x *GetBudgetInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_service_proto_msgTypes[5]
+	mi := &file_agent_service_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -380,7 +460,7 @@ func (x *GetBudgetInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBudgetInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetBudgetInfoRequest) Descriptor() ([]byte, []int) {
-	return file_agent_service_proto_rawDescGZIP(), []int{5}
+	return file_agent_service_proto_rawDescGZIP(), []int{7}
 }
 
 type GetBudgetInfoResponse struct {
@@ -396,7 +476,7 @@ type GetBudgetInfoResponse struct {
 
 func (x *GetBudgetInfoResponse) Reset() {
 	*x = GetBudgetInfoResponse{}
-	mi := &file_agent_service_proto_msgTypes[6]
+	mi := &file_agent_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -408,7 +488,7 @@ func (x *GetBudgetInfoResponse) String() string {
 func (*GetBudgetInfoResponse) ProtoMessage() {}
 
 func (x *GetBudgetInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_service_proto_msgTypes[6]
+	mi := &file_agent_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -421,7 +501,7 @@ func (x *GetBudgetInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBudgetInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetBudgetInfoResponse) Descriptor() ([]byte, []int) {
-	return file_agent_service_proto_rawDescGZIP(), []int{6}
+	return file_agent_service_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetBudgetInfoResponse) GetDailyLimitMsat() int64 {
@@ -463,7 +543,10 @@ var File_agent_service_proto protoreflect.FileDescriptor
 
 const file_agent_service_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent_service.proto\x12\fkuberbolt.v1\"\x98\x01\n" +
+	"\x13agent_service.proto\x12\fkuberbolt.v1\"\x17\n" +
+	"\x15GetChannelInfoRequest\"@\n" +
+	"\x16GetChannelInfoResponse\x12&\n" +
+	"\x0fsynced_to_chain\x18\x01 \x01(\bR\rsyncedToChain\"\x98\x01\n" +
 	"\x12CallServiceRequest\x12!\n" +
 	"\fservice_kind\x18\x01 \x01(\tR\vserviceKind\x12\x19\n" +
 	"\bjob_spec\x18\x02 \x01(\fR\ajobSpec\x12!\n" +
@@ -494,11 +577,12 @@ const file_agent_service_proto_rawDesc = "" +
 	"\x10daily_spent_msat\x18\x02 \x01(\x03R\x0edailySpentMsat\x12,\n" +
 	"\x12monthly_limit_msat\x18\x03 \x01(\x03R\x10monthlyLimitMsat\x12,\n" +
 	"\x12monthly_spent_msat\x18\x04 \x01(\x03R\x10monthlySpentMsat\x12%\n" +
-	"\x0eavailable_msat\x18\x05 \x01(\x03R\ravailableMsat2\xa0\x02\n" +
+	"\x0eavailable_msat\x18\x05 \x01(\x03R\ravailableMsat2\xfd\x02\n" +
 	"\x13FinancialPodService\x12R\n" +
 	"\vCallService\x12 .kuberbolt.v1.CallServiceRequest\x1a!.kuberbolt.v1.CallServiceResponse\x12[\n" +
 	"\x0ePayHoldInvoice\x12#.kuberbolt.v1.PayHoldInvoiceRequest\x1a$.kuberbolt.v1.PayHoldInvoiceResponse\x12X\n" +
-	"\rGetBudgetInfo\x12\".kuberbolt.v1.GetBudgetInfoRequest\x1a#.kuberbolt.v1.GetBudgetInfoResponseB3Z1github.com/kuberbolt/financial-pod/internal/pb;pbb\x06proto3"
+	"\rGetBudgetInfo\x12\".kuberbolt.v1.GetBudgetInfoRequest\x1a#.kuberbolt.v1.GetBudgetInfoResponse\x12[\n" +
+	"\x0eGetChannelInfo\x12#.kuberbolt.v1.GetChannelInfoRequest\x1a$.kuberbolt.v1.GetChannelInfoResponseB3Z1github.com/kuberbolt/financial-pod/internal/pb;pbb\x06proto3"
 
 var (
 	file_agent_service_proto_rawDescOnce sync.Once
@@ -512,25 +596,29 @@ func file_agent_service_proto_rawDescGZIP() []byte {
 	return file_agent_service_proto_rawDescData
 }
 
-var file_agent_service_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_agent_service_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_agent_service_proto_goTypes = []any{
-	(*CallServiceRequest)(nil),     // 0: kuberbolt.v1.CallServiceRequest
-	(*CallServiceResponse)(nil),    // 1: kuberbolt.v1.CallServiceResponse
-	(*PaymentRequired)(nil),        // 2: kuberbolt.v1.PaymentRequired
-	(*PayHoldInvoiceRequest)(nil),  // 3: kuberbolt.v1.PayHoldInvoiceRequest
-	(*PayHoldInvoiceResponse)(nil), // 4: kuberbolt.v1.PayHoldInvoiceResponse
-	(*GetBudgetInfoRequest)(nil),   // 5: kuberbolt.v1.GetBudgetInfoRequest
-	(*GetBudgetInfoResponse)(nil),  // 6: kuberbolt.v1.GetBudgetInfoResponse
+	(*GetChannelInfoRequest)(nil),  // 0: kuberbolt.v1.GetChannelInfoRequest
+	(*GetChannelInfoResponse)(nil), // 1: kuberbolt.v1.GetChannelInfoResponse
+	(*CallServiceRequest)(nil),     // 2: kuberbolt.v1.CallServiceRequest
+	(*CallServiceResponse)(nil),    // 3: kuberbolt.v1.CallServiceResponse
+	(*PaymentRequired)(nil),        // 4: kuberbolt.v1.PaymentRequired
+	(*PayHoldInvoiceRequest)(nil),  // 5: kuberbolt.v1.PayHoldInvoiceRequest
+	(*PayHoldInvoiceResponse)(nil), // 6: kuberbolt.v1.PayHoldInvoiceResponse
+	(*GetBudgetInfoRequest)(nil),   // 7: kuberbolt.v1.GetBudgetInfoRequest
+	(*GetBudgetInfoResponse)(nil),  // 8: kuberbolt.v1.GetBudgetInfoResponse
 }
 var file_agent_service_proto_depIdxs = []int32{
-	0, // 0: kuberbolt.v1.FinancialPodService.CallService:input_type -> kuberbolt.v1.CallServiceRequest
-	3, // 1: kuberbolt.v1.FinancialPodService.PayHoldInvoice:input_type -> kuberbolt.v1.PayHoldInvoiceRequest
-	5, // 2: kuberbolt.v1.FinancialPodService.GetBudgetInfo:input_type -> kuberbolt.v1.GetBudgetInfoRequest
-	1, // 3: kuberbolt.v1.FinancialPodService.CallService:output_type -> kuberbolt.v1.CallServiceResponse
-	4, // 4: kuberbolt.v1.FinancialPodService.PayHoldInvoice:output_type -> kuberbolt.v1.PayHoldInvoiceResponse
-	6, // 5: kuberbolt.v1.FinancialPodService.GetBudgetInfo:output_type -> kuberbolt.v1.GetBudgetInfoResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
+	2, // 0: kuberbolt.v1.FinancialPodService.CallService:input_type -> kuberbolt.v1.CallServiceRequest
+	5, // 1: kuberbolt.v1.FinancialPodService.PayHoldInvoice:input_type -> kuberbolt.v1.PayHoldInvoiceRequest
+	7, // 2: kuberbolt.v1.FinancialPodService.GetBudgetInfo:input_type -> kuberbolt.v1.GetBudgetInfoRequest
+	0, // 3: kuberbolt.v1.FinancialPodService.GetChannelInfo:input_type -> kuberbolt.v1.GetChannelInfoRequest
+	3, // 4: kuberbolt.v1.FinancialPodService.CallService:output_type -> kuberbolt.v1.CallServiceResponse
+	6, // 5: kuberbolt.v1.FinancialPodService.PayHoldInvoice:output_type -> kuberbolt.v1.PayHoldInvoiceResponse
+	8, // 6: kuberbolt.v1.FinancialPodService.GetBudgetInfo:output_type -> kuberbolt.v1.GetBudgetInfoResponse
+	1, // 7: kuberbolt.v1.FinancialPodService.GetChannelInfo:output_type -> kuberbolt.v1.GetChannelInfoResponse
+	4, // [4:8] is the sub-list for method output_type
+	0, // [0:4] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -547,7 +635,7 @@ func file_agent_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_service_proto_rawDesc), len(file_agent_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

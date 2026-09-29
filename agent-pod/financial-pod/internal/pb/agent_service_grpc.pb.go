@@ -22,6 +22,7 @@ const (
 	FinancialPodService_CallService_FullMethodName    = "/kuberbolt.v1.FinancialPodService/CallService"
 	FinancialPodService_PayHoldInvoice_FullMethodName = "/kuberbolt.v1.FinancialPodService/PayHoldInvoice"
 	FinancialPodService_GetBudgetInfo_FullMethodName  = "/kuberbolt.v1.FinancialPodService/GetBudgetInfo"
+	FinancialPodService_GetChannelInfo_FullMethodName = "/kuberbolt.v1.FinancialPodService/GetChannelInfo"
 )
 
 // FinancialPodServiceClient is the client API for FinancialPodService service.
@@ -41,6 +42,8 @@ type FinancialPodServiceClient interface {
 	PayHoldInvoice(ctx context.Context, in *PayHoldInvoiceRequest, opts ...grpc.CallOption) (*PayHoldInvoiceResponse, error)
 	// GetBudgetInfo returns current daily/monthly spend counters.
 	GetBudgetInfo(ctx context.Context, in *GetBudgetInfoRequest, opts ...grpc.CallOption) (*GetBudgetInfoResponse, error)
+	// GetChannelInfo returns readiness data (e.g. LND chain sync status) for health checks.
+	GetChannelInfo(ctx context.Context, in *GetChannelInfoRequest, opts ...grpc.CallOption) (*GetChannelInfoResponse, error)
 }
 
 type financialPodServiceClient struct {
@@ -81,6 +84,16 @@ func (c *financialPodServiceClient) GetBudgetInfo(ctx context.Context, in *GetBu
 	return out, nil
 }
 
+func (c *financialPodServiceClient) GetChannelInfo(ctx context.Context, in *GetChannelInfoRequest, opts ...grpc.CallOption) (*GetChannelInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetChannelInfoResponse)
+	err := c.cc.Invoke(ctx, FinancialPodService_GetChannelInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinancialPodServiceServer is the server API for FinancialPodService service.
 // All implementations must embed UnimplementedFinancialPodServiceServer
 // for forward compatibility.
@@ -98,6 +111,8 @@ type FinancialPodServiceServer interface {
 	PayHoldInvoice(context.Context, *PayHoldInvoiceRequest) (*PayHoldInvoiceResponse, error)
 	// GetBudgetInfo returns current daily/monthly spend counters.
 	GetBudgetInfo(context.Context, *GetBudgetInfoRequest) (*GetBudgetInfoResponse, error)
+	// GetChannelInfo returns readiness data (e.g. LND chain sync status) for health checks.
+	GetChannelInfo(context.Context, *GetChannelInfoRequest) (*GetChannelInfoResponse, error)
 	mustEmbedUnimplementedFinancialPodServiceServer()
 }
 
@@ -116,6 +131,9 @@ func (UnimplementedFinancialPodServiceServer) PayHoldInvoice(context.Context, *P
 }
 func (UnimplementedFinancialPodServiceServer) GetBudgetInfo(context.Context, *GetBudgetInfoRequest) (*GetBudgetInfoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetBudgetInfo not implemented")
+}
+func (UnimplementedFinancialPodServiceServer) GetChannelInfo(context.Context, *GetChannelInfoRequest) (*GetChannelInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetChannelInfo not implemented")
 }
 func (UnimplementedFinancialPodServiceServer) mustEmbedUnimplementedFinancialPodServiceServer() {}
 func (UnimplementedFinancialPodServiceServer) testEmbeddedByValue()                             {}
@@ -192,6 +210,24 @@ func _FinancialPodService_GetBudgetInfo_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinancialPodService_GetChannelInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetChannelInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinancialPodServiceServer).GetChannelInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinancialPodService_GetChannelInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinancialPodServiceServer).GetChannelInfo(ctx, req.(*GetChannelInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinancialPodService_ServiceDesc is the grpc.ServiceDesc for FinancialPodService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -210,6 +246,10 @@ var FinancialPodService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetBudgetInfo",
 			Handler:    _FinancialPodService_GetBudgetInfo_Handler,
+		},
+		{
+			MethodName: "GetChannelInfo",
+			Handler:    _FinancialPodService_GetChannelInfo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

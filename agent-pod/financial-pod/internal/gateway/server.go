@@ -211,11 +211,23 @@ func (s *Server) GetBudgetInfo(_ context.Context, _ *pb.GetBudgetInfoRequest) (*
 	}, nil
 }
 
+// GetChannelInfo returns readiness data (e.g., LND chain sync status).
+func (s *Server) GetChannelInfo(ctx context.Context, _ *pb.GetChannelInfoRequest) (*pb.GetChannelInfoResponse, error) {
+	info, err := s.lnd.GetInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("LND not ready: %w", err)
+	}
+	return &pb.GetChannelInfoResponse{
+		SyncedToChain: info.SyncedToChain,
+	}, nil
+}
+
 // financialPodServiceServer is the interface the Server fulfils for gRPC registration.
 type financialPodServiceServer interface {
 	CallService(context.Context, *pb.CallServiceRequest) (*pb.CallServiceResponse, error)
 	PayHoldInvoice(context.Context, *pb.PayHoldInvoiceRequest) (*pb.PayHoldInvoiceResponse, error)
 	GetBudgetInfo(context.Context, *pb.GetBudgetInfoRequest) (*pb.GetBudgetInfoResponse, error)
+	GetChannelInfo(context.Context, *pb.GetChannelInfoRequest) (*pb.GetChannelInfoResponse, error)
 }
 
 // financialPodServiceDesc is the minimal gRPC service descriptor, replacing protoc output.
@@ -251,6 +263,16 @@ var financialPodServiceDesc = grpc.ServiceDesc{
 					return nil, err
 				}
 				return srv.(financialPodServiceServer).GetBudgetInfo(ctx, &req)
+			},
+		},
+		{
+			MethodName: "GetChannelInfo",
+			Handler: func(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
+				var req pb.GetChannelInfoRequest
+				if err := dec(&req); err != nil {
+					return nil, err
+				}
+				return srv.(financialPodServiceServer).GetChannelInfo(ctx, &req)
 			},
 		},
 	},
