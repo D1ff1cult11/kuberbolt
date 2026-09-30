@@ -1,46 +1,66 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
 import Discover from './pages/Discover';
 import './index.css';
+import './App.css';
+
+function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+  return (
+    <Link to={to} className={isActive ? 'active' : ''}>
+      {children}
+    </Link>
+  );
+}
+
+function AppContent({ theme, toggleTheme }: { theme: string; toggleTheme: () => void }) {
+  return (
+    <div>
+      <nav className="navbar">
+        <Link to="/" className="nav-brand">
+          <span className="bolt">⚡</span> Kuberbolt
+        </Link>
+        <div className="nav-links">
+          <NavLink to="/">Dashboard</NavLink>
+          <NavLink to="/register">Register</NavLink>
+          <NavLink to="/discover">Discover</NavLink>
+        </div>
+        <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+          {theme === 'light' ? '🌙' : '☀️'}
+        </button>
+      </nav>
+
+      <main className="page-wrapper">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/discover" element={<Discover />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
 
 function App() {
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('kuberbolt-theme') || 'dark';
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('kuberbolt-theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
   return (
     <Router>
-      <div className="app-container">
-        <nav className="navbar glass-panel" style={{ margin: '16px', borderRadius: '16px' }}>
-          <div style={{ fontWeight: 'bold', fontSize: '1.2rem', letterSpacing: '1px' }}>
-            ⚡ Kuberbolt
-          </div>
-          <div className="nav-links">
-            <Link to="/">Dashboard</Link>
-            <Link to="/register">Register Agent</Link>
-            <Link to="/discover">Discover</Link>
-          </div>
-          <button className="theme-toggle" onClick={toggleTheme}>
-            {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
-          </button>
-        </nav>
-
-        <main style={{ padding: '0 32px', maxWidth: '1200px', margin: '0 auto' }}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/discover" element={<Discover />} />
-          </Routes>
-        </main>
-      </div>
+      <AppContent theme={theme} toggleTheme={toggleTheme} />
     </Router>
   );
 }
