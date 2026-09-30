@@ -3,6 +3,7 @@ import hashlib
 import hmac
 from typing import Any
 
+
 class AgentRegistry:
     """Thread-safe registry of active KuberboltAgent instances in session."""
 
@@ -15,7 +16,8 @@ class AgentRegistry:
         async with self._lock:
             pubkey = agent.pubkey_hex
             self._agents[pubkey] = agent
-            self._token_hashes[pubkey] = hashlib.sha256(session_token.encode()).digest()
+            self._token_hashes[pubkey] = hashlib.sha256(
+                session_token.encode()).digest()
             return pubkey
 
     async def authenticate(self, pubkey: str, session_token: str) -> Any | None:

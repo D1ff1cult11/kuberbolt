@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-from pathlib import Path
 
 
 from fastapi import FastAPI, Request
@@ -90,10 +89,12 @@ class SensitiveDataRedactionLoggingMiddleware(BaseHTTPMiddleware):
                     )
                 logged_body = raw_str
 
-        logger.info(f"Incoming Request: {request.method} {request.url.path} Body: {logged_body}")
+        logger.info(
+            f"Incoming Request: {request.method} {request.url.path} Body: {logged_body}")
 
         response = await call_next(request)
-        logger.info(f"Response: {response.status_code} {request.method} {request.url.path}")
+        logger.info(
+            f"Response: {response.status_code} {request.method} {request.url.path}")
         return response
 
 

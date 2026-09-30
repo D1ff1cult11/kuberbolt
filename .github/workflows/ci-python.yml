@@ -39,7 +39,7 @@ jobs:
       - name: Run linter
         run: |
           pip install flake8
-          flake8 api/ sdk/ --max-line-length=120 --ignore=E501,W503
+          flake8 api/ sdk/ --max-line-length=120 --ignore=E501,W503 --exclude=*_pb2*.py
 
       - name: Run tests
         run: pytest tests/ -v --tb=short
