@@ -11,16 +11,14 @@ help:
 up:
 	@echo "🚀 Starting Lightning Infrastructure..."
 	@cd lightning-infra && docker compose -f docker-compose.lnd.yml up -d
-	@echo "🚀 Starting FastAPI Backend (in background)..."
-	@start pwsh -NoExit -Command "uvicorn api.main:app --reload --port 8000"
-	@echo "🚀 Starting Frontend Dashboard (in background)..."
-	@start pwsh -NoExit -Command "cd frontend; $$env:VITE_API_URL='http://localhost:8000'; npm run dev"
-	@echo "✅ All systems go! Dashboard available at http://localhost:5173"
+	@echo "✅ LND is running in the background."
+	@echo "👉 Now, please open two new terminal windows and run:"
+	@echo "   Terminal 1: make api"
+	@echo "   Terminal 2: make frontend"
 
 down:
 	@echo "🛑 Stopping Lightning Infrastructure..."
 	@cd lightning-infra && docker compose -f docker-compose.lnd.yml down
-	@echo "🛑 Please close the API and Frontend terminal windows manually."
 
 api:
 	uvicorn api.main:app --reload --port 8000
