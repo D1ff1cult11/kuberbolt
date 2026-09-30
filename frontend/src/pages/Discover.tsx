@@ -1,8 +1,23 @@
 import { useState, useEffect } from 'react';
 
+interface Provider {
+  service_name: string;
+  agent_pubkey: string;
+  price_sats: number;
+  category: string;
+}
+
+const DEMO_PROVIDERS: Provider[] = [
+  { service_name: 'LLM Inference (GPT-4)', agent_pubkey: 'npub1q8k2fy5lmf7gqr4zctaw...', price_sats: 50, category: 'compute' },
+  { service_name: 'Image Generation (SDXL)', agent_pubkey: 'npub1xh9n3jk2p5wlsrvt6aq...', price_sats: 200, category: 'compute' },
+  { service_name: 'Code Review Agent', agent_pubkey: 'npub1d4r7kmz8f3q9vwnyp2c...', price_sats: 100, category: 'compute' },
+  { service_name: 'Speech-to-Text (Whisper)', agent_pubkey: 'npub1m7g5ht4k2wcfnpj8rd6...', price_sats: 75, category: 'compute' },
+];
+
 export default function Discover() {
-  const [providers, setProviders] = useState<any[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     fetchProviders();
@@ -11,15 +26,24 @@ export default function Discover() {
   const fetchProviders = async () => {
     setLoading(true);
     try {
-      // Mock API call or real API depending on backend status
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const res = await fetch(`${apiUrl}/api/providers?category=compute`);
       if (res.ok) {
         const data = await res.json();
-        setProviders(data.items || []);
+        const items = data.items || [];
+        if (items.length > 0) {
+          setProviders(items);
+          setIsDemo(false);
+        } else {
+          setProviders(DEMO_PROVIDERS);
+          setIsDemo(true);
+        }
+      } else {
+        throw new Error('API error');
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      setProviders(DEMO_PROVIDERS);
+      setIsDemo(true);
     } finally {
       setLoading(false);
     }
@@ -27,26 +51,37 @@ export default function Discover() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <h1>Discover Providers</h1>
-        <button className="btn" onClick={fetchProviders}>Refresh</button>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Discover Providers</h1>
+          <p className="page-subtitle">Find AI compute providers on the Nostr network</p>
+        </div>
+        <button className="btn btn-outline" onClick={fetchProviders}>↻ Refresh</button>
       </div>
 
+      {isDemo && (
+        <div className="banner banner-info">
+          ℹ️ <span><strong>Demo Mode</strong> — Showing sample providers. Connect a backend to query real Nostr relays.</span>
+        </div>
+      )}
+
       {loading ? (
-        <p>Searching Nostr network...</p>
-      ) : providers.length === 0 ? (
-        <div className="glass-panel" style={{ textAlign: 'center', padding: '48px' }}>
-          <p style={{ fontSize: '1.2rem', opacity: 0.7 }}>No compute providers found on the network.</p>
+        <div className="glass-panel empty-state">
+          <div className="empty-state-icon">🔍</div>
+          <p>Searching Nostr network...</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+        <div className="card-grid">
           {providers.map((p, i) => (
-            <div key={i} className="glass-panel">
-              <h3>{p.service_name}</h3>
-              <p style={{ opacity: 0.8, fontSize: '0.9rem' }}>Provider: {p.agent_pubkey.slice(0, 8)}...</p>
-              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 'bold', color: 'var(--primary-color)' }}>{p.price_sats} sats / req</span>
-                <button className="btn" style={{ padding: '6px 12px', fontSize: '14px' }}>Connect</button>
+            <div key={i} className="glass-panel provider-card">
+              <div>
+                <div className="provider-name">{p.service_name}</div>
+                <div className="provider-pubkey">{p.agent_pubkey.slice(0, 24)}...</div>
+                <span className="badge badge-success">● Available</span>
+              </div>
+              <div className="provider-footer">
+                <span className="provider-price">⚡ {p.price_sats} sats/req</span>
+                <button className="btn btn-sm">Connect</button>
               </div>
             </div>
           ))}

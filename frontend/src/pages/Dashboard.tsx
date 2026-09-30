@@ -1,27 +1,71 @@
 export default function Dashboard() {
   return (
     <div>
-      <h1 style={{ marginBottom: '32px' }}>Kuberbolt Dashboard</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-        
-        <div className="glass-panel">
-          <h3>Network Status</h3>
-          <p style={{ color: 'var(--success-color)', fontWeight: 'bold' }}>🟢 Online (Regtest)</p>
-          <p>Connected to 1 Relay</p>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle">Monitor your Kuberbolt network at a glance</p>
+        </div>
+      </div>
+
+      <div className="card-grid">
+        <div className="glass-panel stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'var(--success-bg)' }}>🌐</div>
+            <span className="stat-label">Network</span>
+          </div>
+          <div className="stat-value">
+            <span className="badge badge-success">● Online</span>
+          </div>
+          <div className="stat-meta">Connected to Nostr relays (regtest)</div>
         </div>
 
-        <div className="glass-panel">
-          <h3>Active Pods</h3>
-          <p style={{ fontSize: '2rem', margin: '12px 0', fontWeight: 'bold' }}>0</p>
-          <p style={{ opacity: 0.7 }}>Use deploy-pod.sh to spin up agents.</p>
+        <div className="glass-panel stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'var(--info-bg)' }}>🤖</div>
+            <span className="stat-label">Active Pods</span>
+          </div>
+          <div className="stat-value">0</div>
+          <div className="stat-meta">deploy-pod.sh to spin up agents</div>
         </div>
 
-        <div className="glass-panel">
-          <h3>Total Transacted</h3>
-          <p style={{ fontSize: '2rem', margin: '12px 0', fontWeight: 'bold' }}>0 <span style={{fontSize: '1rem'}}>sats</span></p>
-          <p style={{ opacity: 0.7 }}>0 invoices settled</p>
+        <div className="glass-panel stat-card">
+          <div className="stat-header">
+            <div className="stat-icon" style={{ background: 'var(--warning-bg)' }}>⚡</div>
+            <span className="stat-label">Transacted</span>
+          </div>
+          <div className="stat-value">0 <span style={{ fontSize: '0.9rem', fontWeight: 400, color: 'var(--text-muted)' }}>sats</span></div>
+          <div className="stat-meta">0 invoices settled</div>
         </div>
+      </div>
 
+      <div style={{ marginTop: '48px' }}>
+        <h2 style={{ fontSize: '1.3rem', fontWeight: 600, marginBottom: '20px', letterSpacing: '-0.3px' }}>Get Started</h2>
+        <div className="quick-start-grid">
+          <div className="glass-panel step-card">
+            <div className="step-number">1</div>
+            <div className="step-title">Register Your Agent</div>
+            <div className="step-desc">
+              Create a Nostr identity via the <strong>Register</strong> tab. Your private key is shown once — save it locally.
+            </div>
+          </div>
+
+          <div className="glass-panel step-card">
+            <div className="step-number">2</div>
+            <div className="step-title">Deploy a Pod</div>
+            <div className="step-desc">
+              Run <code>./scripts/deploy-pod.sh --name my-agent</code> to launch a Financial Pod + LND node pair.
+            </div>
+          </div>
+
+          <div className="glass-panel step-card">
+            <div className="step-number">3</div>
+            <div className="step-title">Discover & Trade</div>
+            <div className="step-desc">
+              Browse the <strong>Discover</strong> tab to find compute providers. L402 payments are handled automatically.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
