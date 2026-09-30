@@ -4,6 +4,7 @@ import { KeyDisplay } from '../components/KeyDisplay';
 export default function Register() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     role: 'merchant',
     displayName: '',
@@ -15,6 +16,7 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
     const payload = {
       role: formData.role,
@@ -43,10 +45,10 @@ export default function Register() {
       if (res.ok) {
         setResult(data);
       } else {
-        alert('Error: ' + JSON.stringify(data));
+        setError(data.detail || JSON.stringify(data));
       }
-    } catch (err) {
-      alert('Failed to register agent');
+    } catch {
+      setError('Could not connect to the API. Make sure the backend is running.');
     } finally {
       setLoading(false);
     }
@@ -55,49 +57,105 @@ export default function Register() {
   if (result) {
     return (
       <div>
-        <h2 style={{ textAlign: 'center', marginBottom: '32px' }}>Registration Successful! 🎉</h2>
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Registration Complete 🎉</h1>
+            <p className="page-subtitle">Your agent identity has been created on the Nostr network</p>
+          </div>
+        </div>
         <KeyDisplay pubkey={result.agent_pubkey} privkey={result.agent_privkey} nsec={result.agent_nsec} />
       </div>
     );
   }
 
   return (
-    <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h2 style={{ marginBottom: '24px' }}>Register New Agent</h2>
-      <form onSubmit={handleSubmit}>
+    <div>
+      <div className="page-header">
         <div>
-          <label style={{ display: 'block', marginBottom: '8px' }}>Agent Name</label>
-          <input className="input-field" value={formData.displayName} onChange={e => setFormData({...formData, displayName: e.target.value})} required placeholder="e.g. Trading Bot Alpha" />
+          <h1 className="page-title">Register Agent</h1>
+          <p className="page-subtitle">Create a new Nostr identity for your AI agent</p>
         </div>
+      </div>
 
-        <div>
-          <label style={{ display: 'block', marginBottom: '8px' }}>Lightning Node Pubkey</label>
-          <input className="input-field" value={formData.nodePubkey} onChange={e => setFormData({...formData, nodePubkey: e.target.value})} required placeholder="02abcd..." />
-        </div>
-
-        <div>
-          <label style={{ display: 'block', marginBottom: '8px' }}>Role</label>
-          <select className="input-field" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-            <option value="merchant">Merchant (Provides Services)</option>
-            <option value="client">Client (Consumes Services)</option>
-          </select>
-        </div>
-
-        {formData.role === 'merchant' && (
-          <div style={{ padding: '16px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px', marginBottom: '16px' }}>
-            <h4 style={{ marginTop: 0 }}>Service Details</h4>
-            <label style={{ display: 'block', marginBottom: '8px' }}>Service Name</label>
-            <input className="input-field" value={formData.serviceName} onChange={e => setFormData({...formData, serviceName: e.target.value})} required placeholder="e.g. LLM Inference" />
-            
-            <label style={{ display: 'block', marginBottom: '8px' }}>Price (Sats)</label>
-            <input className="input-field" type="number" value={formData.priceSats} onChange={e => setFormData({...formData, priceSats: Number(e.target.value)})} required />
+      <div className="glass-panel" style={{ maxWidth: '560px', margin: '0 auto' }}>
+        {error && (
+          <div className="banner banner-warning">
+            ⚠️ {error}
           </div>
         )}
 
-        <button type="submit" className="btn" style={{ width: '100%', padding: '14px', fontSize: '16px' }} disabled={loading}>
-          {loading ? 'Registering...' : 'Register Agent'}
-        </button>
-      </form>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Agent Name</label>
+            <input
+              className="input-field"
+              value={formData.displayName}
+              onChange={e => setFormData({ ...formData, displayName: e.target.value })}
+              required
+              placeholder="e.g. Trading Bot Alpha"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Lightning Node Pubkey</label>
+            <input
+              className="input-field"
+              value={formData.nodePubkey}
+              onChange={e => setFormData({ ...formData, nodePubkey: e.target.value })}
+              required
+              placeholder="02abcd1234..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Role</label>
+            <select
+              className="input-field"
+              value={formData.role}
+              onChange={e => setFormData({ ...formData, role: e.target.value })}
+            >
+              <option value="merchant">Merchant — Provides Compute Services</option>
+              <option value="client">Client — Consumes Compute Services</option>
+            </select>
+          </div>
+
+          {formData.role === 'merchant' && (
+            <div className="form-section">
+              <div className="form-section-title">Service Configuration</div>
+              <div className="form-group">
+                <label className="form-label">Service Name</label>
+                <input
+                  className="input-field"
+                  value={formData.serviceName}
+                  onChange={e => setFormData({ ...formData, serviceName: e.target.value })}
+                  required
+                  placeholder="e.g. LLM Inference"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Price per Request (sats)</label>
+                <input
+                  className="input-field"
+                  type="number"
+                  value={formData.priceSats}
+                  onChange={e => setFormData({ ...formData, priceSats: Number(e.target.value) })}
+                  required
+                  min={1}
+                />
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="btn"
+            style={{ width: '100%', padding: '14px', fontSize: '0.95rem', marginTop: '8px' }}
+            disabled={loading}
+          >
+            {loading ? 'Creating identity...' : '⚡ Register Agent'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
