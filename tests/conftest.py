@@ -174,4 +174,9 @@ def client(mock_agent):
         mock_tag_search.return_value = SAMPLE_TAG_SEARCH_RESULTS
 
         from api.main import app
-        yield TestClient(app, raise_server_exceptions=False)
+        try:
+            yield TestClient(app, raise_server_exceptions=False)
+
+        finally:
+            _registry._agents.pop(FAKE_PUBKEY,None)
+            _registry._token_hashes.pop(FAKE_PUBKEY,None)
