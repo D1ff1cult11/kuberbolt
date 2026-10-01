@@ -23,7 +23,7 @@ async def register_agent(req: RegisterAgentRequest, response: Response):
         identity_path = os.path.join(tmpdir, "id.json")
         agent = await KuberboltAgent.create(
             identity_path=identity_path,
-            relay_urls=req.relays or DEFAULT_RELAYS,
+            relay_urls=DEFAULT_RELAYS,
         )
         secret_key_hex = agent.keys.secret_key().to_hex()
         secret_key_bech32 = agent.keys.secret_key().to_bech32()
