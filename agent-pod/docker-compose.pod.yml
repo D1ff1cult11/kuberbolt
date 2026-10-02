@@ -1,4 +1,5 @@
 services:
+<<<<<<< HEAD
   brain:
     build:
       context: ./brain
@@ -27,3 +28,28 @@ services:
       - ../lightning-infra/bob-data:/lnd-data:ro
       - ../lightning-infra/bob-data/tls.cert:/lnd/tls.cert:ro
       - ../lightning-infra/bob-data/data/chain/bitcoin/regtest/admin.macaroon:/lnd/admin.macaroon:ro
+=======
+  daemon:
+    build:
+      context: ./daemon
+      dockerfile: Dockerfile
+    container_name: kuberbolt-daemon
+    ports:
+      - "50051:50051"
+    restart: unless-stopped
+
+  brain:
+    build:
+      context: ./brain
+      dockerfile: Dockerfile
+    container_name: kuberbolt-brain
+    depends_on:
+      - daemon
+    environment:
+      - DAEMON_HOST=daemon
+      - DAEMON_PORT=50051
+      - KUBERBOLT_RELAYS=wss://relay.damus.io,wss://nos.lol
+      - POLL_INTERVAL_SECS=60
+      - NOSTR_FETCH_WINDOW_SECS=3600
+    restart: unless-stopped
+>>>>>>> db30eb5 (docker files fixed)
