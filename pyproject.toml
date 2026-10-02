@@ -12,6 +12,8 @@ dependencies = [
     "pydantic>=2",
     "starlette>=0.36",
     "uvicorn[standard]>=0.27",
+    "redis[asyncio]>=5",
+    "cryptography>=42",
 ]
 
 [project.optional-dependencies]
@@ -23,7 +25,7 @@ dev = [
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]

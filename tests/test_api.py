@@ -6,10 +6,8 @@ from fastapi.testclient import TestClient
 from api.main import app
 from tests.conftest import FAKE_PUBKEY, SESSION_TOKEN
 
-client = TestClient(app)
 
-
-def test_health_check():
+def test_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
@@ -47,7 +45,7 @@ def test_schema_validations():
         )
 
 
-def test_register_client():
+def test_register_client(client):
     request_data = {
         "role": "client",
         "display_name": "Test Client Agent",
@@ -71,7 +69,7 @@ def test_register_client():
     assert "profile_event_id" in data
 
 
-def test_register_merchant():
+def test_register_merchant(client):
     request_data = {
         "role": "merchant",
         "display_name": "Test Merchant Agent",
@@ -101,7 +99,7 @@ def test_register_merchant():
     assert data["listing_event_id"] is not None
 
 
-def test_redaction_logging(caplog):
+def test_redaction_logging(client, caplog):
     caplog.set_level(logging.INFO)
     test_key = "e" * 64
     dummy_pubkey = "b" * 64
@@ -124,7 +122,7 @@ def test_redaction_logging(caplog):
             assert "agent_pubkey" in record.message
 
 
-def test_unregistered_agent_pubkey():
+def test_unregistered_agent_pubkey(client):
     response = client.post(
         "/api/requests",
         json={
@@ -136,7 +134,7 @@ def test_unregistered_agent_pubkey():
     assert response.status_code == 401
 
 
-def test_discover_providers():
+def test_discover_providers(client):
     response = client.get("/api/providers?category=ai_text&limit=10")
     assert response.status_code == 200
     data = response.json()
