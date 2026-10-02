@@ -9,11 +9,14 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 import hashlib
+import os
+from cryptography.fernet import Fernet
+
+os.environ["AGENT_FERNET_KEY"] = Fernet.generate_key().decode()
 
 import pytest
 from fastapi.testclient import TestClient
-
-from api.agent_registry import _registry
+from unittest.mock import AsyncMock, patch
 
 # ---------------------------------------------------------------------------
 # Fixed test data
@@ -97,12 +100,14 @@ def _build_mock_agent() -> MagicMock:
     mock_secret_key.to_bech32.return_value = "nsec1test"
     agent.keys.secret_key.return_value = mock_secret_key
 
-    # register() -> dict
-    agent.register = AsyncMock(return_value={
-        "nostr_pubkey": FAKE_PUBKEY,
-        "profile_event_id": FAKE_PROFILE_EVENT_ID,
-        "listing_event_id": FAKE_LISTING_EVENT_ID,
-    })
+    async def _mock_register(*args, **kwargs):
+        role = kwargs.get("role", "merchant")
+        return {
+            "nostr_pubkey": FAKE_PUBKEY,
+            "profile_event_id": FAKE_PROFILE_EVENT_ID,
+            "listing_event_id": FAKE_LISTING_EVENT_ID if role == "merchant" else None,
+        }
+    agent.register = AsyncMock(side_effect=_mock_register)
 
     # update_agent() -> dict
     agent.update_agent = AsyncMock(return_value={
@@ -152,11 +157,31 @@ def client(mock_agent):
     TestClient wired to the real FastAPI app, with KuberboltAgent mocked at
     every import boundary so no network access occurs.
     """
-    _registry._agents[FAKE_PUBKEY] = mock_agent
-    _registry._token_hashes[FAKE_PUBKEY] = hashlib.sha256(SESSION_TOKEN.encode()).digest()
+    from api.agent_registry import FERNET_KEY
+    FAKE_ROW = {
+        b"token_hash":  hashlib.sha256(SESSION_TOKEN.encode()).digest(),
+        b"enc_privkey": Fernet(FERNET_KEY.encode()).encrypt(b"1" * 64),
+    }
+
+    async def _mock_hgetall(key):
+        if key == f"agent:{FAKE_PUBKEY}":
+            return FAKE_ROW
+        return {}
+
+    fake_redis = AsyncMock()
+    fake_redis.hgetall = AsyncMock(side_effect=_mock_hgetall)
+    fake_redis.hset    = AsyncMock()
+    fake_redis.expire  = AsyncMock()
+    fake_redis.exists  = AsyncMock(return_value=1)
+    fake_redis.delete  = AsyncMock()
+
+    from api.agent_registry import _lru
+    _lru._cache[FAKE_PUBKEY] = mock_agent
 
     with (
+        patch("api.agent_registry.get_redis", return_value=fake_redis),
         patch("api.routers.agents.KuberboltAgent") as AgentClsAgents,
+        patch("sdk.python.nostr_sdk_wrapper.agent.KuberboltAgent") as AgentClsRegistry,
         patch("api.routers.providers.get_discovery_agent", new_callable=AsyncMock) as mock_discovery,
         patch("api.routers.search.get_discovery_agent", new_callable=AsyncMock) as mock_search_discovery,
         patch("api.routers.search.filter_providers_by_tag", new_callable=AsyncMock) as mock_tag_search,
@@ -165,6 +190,7 @@ def client(mock_agent):
     ):
         AgentClsAgents.create = AsyncMock(return_value=mock_agent)
         AgentClsAgents.from_existing_key = AsyncMock(return_value=mock_agent)
+        AgentClsRegistry.from_existing_key = AsyncMock(return_value=mock_agent)
 
         mock_discovery.return_value = mock_agent
         mock_search_discovery.return_value = mock_agent
