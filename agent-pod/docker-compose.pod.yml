@@ -1,34 +1,4 @@
 services:
-<<<<<<< HEAD
-  brain:
-    build:
-      context: ./brain
-    expose:
-      - "8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-
-  financial-pod:
-    build:
-      context: ./financial-pod
-    command: ["--config", "/config/provider.yaml"]
-    depends_on:
-      brain:
-        condition: service_healthy
-    ports:
-      - "6001:6001"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ./config/provider.yaml:/config/provider.yaml:ro
-      # Created by lightning-infra/docker-compose.lnd.yml after LND starts.
-      - ../lightning-infra/bob-data:/lnd-data:ro
-      - ../lightning-infra/bob-data/tls.cert:/lnd/tls.cert:ro
-      - ../lightning-infra/bob-data/data/chain/bitcoin/regtest/admin.macaroon:/lnd/admin.macaroon:ro
-=======
   daemon:
     build:
       context: ./daemon
@@ -52,4 +22,18 @@ services:
       - POLL_INTERVAL_SECS=60
       - NOSTR_FETCH_WINDOW_SECS=3600
     restart: unless-stopped
->>>>>>> db30eb5 (docker files fixed)
+
+  financial-pod:
+    build:
+      context: ./financial-pod
+    command: ["--config", "/config/provider.yaml"]
+    ports:
+      - "6001:6001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./config/provider.yaml:/config/provider.yaml:ro
+      # Created by lightning-infra/docker-compose.lnd.yml after LND starts.
+      - ../lightning-infra/bob-data:/lnd-data:ro
+      - ../lightning-infra/bob-data/tls.cert:/lnd/tls.cert:ro
+      - ../lightning-infra/bob-data/data/chain/bitcoin/regtest/admin.macaroon:/lnd/admin.macaroon:ro
