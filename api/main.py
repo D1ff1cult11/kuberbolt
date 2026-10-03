@@ -5,6 +5,23 @@ import os
 import re
 
 
+def _load_local_env() -> None:
+    """Load simple KEY=VALUE settings before modules read environment config."""
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+
+
+_load_local_env()
+
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
