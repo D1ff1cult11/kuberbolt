@@ -168,6 +168,14 @@ func (p *ProviderSide) issueL402Challenge(ctx context.Context) error {
 		p.logger.Warn("failed to record payment hold", zap.Error(err))
 	}
 
+	fmt.Printf("\n⚡ [L402 CHALLENGE] Invoice created for Buyer -> Amount: %d sats (%d mSat) | Hash: %s\n\n",
+		p.servicePriceMSat/1000, p.servicePriceMSat, shortStr(rhashHex, 20))
+
+	p.logger.Info("⚡ [L402 CHALLENGE] Created HODL invoice for incoming service call",
+		zap.String("payment_hash", shortStr(rhashHex, 16)),
+		zap.Int64("amount_msat", p.servicePriceMSat),
+	)
+
 	// 7. Return the challenge as a structured error. The gRPC interceptor
 	//    wraps this into a PermissionDenied status with PaymentRequired details.
 	return &ErrPaymentRequired{
@@ -248,8 +256,20 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 		return nil, fmt.Errorf("provider: HTLC was not locked (payment not received)")
 	}
 
-	p.logger.Info("HTLC accepted — funds locked, running compute",
-		zap.String("rhash", shortStr(rhashHex, 12)),
+	fmt.Printf("\n"+
+		"╔══════════════════════════════════════════════════════════════════════╗\n"+
+		"║ 🔒 HTLC LOCKED — BUYER PAYMENT RECEIVED & HELD                       ║\n"+
+		"║  Amount:       %-50s    ║\n"+
+		"║  Payment Hash: %-50s    ║\n"+
+		"║  Status:       Funds secured in channel -> Executing AI Compute...   ║\n"+
+		"╚══════════════════════════════════════════════════════════════════════╝\n\n",
+		fmt.Sprintf("%d sats (%d mSat)", p.servicePriceMSat/1000, p.servicePriceMSat),
+		shortStr(rhashHex, 24),
+	)
+
+	p.logger.Info("🔒 [HTLC LOCKED] Buyer payment received & locked in channel — executing compute...",
+		zap.String("payment_hash", shortStr(rhashHex, 16)),
+		zap.Int64("amount_msat", p.servicePriceMSat),
 	)
 
 	// 7. Run compute. On failure → cancel invoice → client gets refund.
@@ -279,8 +299,23 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 		// We cannot cancel here — compute was done. Log and return result anyway.
 		// A retry of SettleInvoice should be added in production.
 	} else {
-		p.logger.Info("HODL invoice settled — funds received",
-			zap.String("rhash", shortStr(rhashHex, 12)),
+		fmt.Printf("\n"+
+			"╔══════════════════════════════════════════════════════════════════════╗\n"+
+			"║ 💰 PAYMENT SETTLED — TRANSFER COMPLETE!                              ║\n"+
+			"║  Settled To:   Seller Node Bob (Channel Balance Increased)           ║\n"+
+			"║  Amount:       %-50s    ║\n"+
+			"║  Payment Hash: %-50s    ║\n"+
+			"║  Preimage:     %-50s    ║\n"+
+			"║  Status:       Funds claimed! Preimage revealed to Buyer             ║\n"+
+			"╚══════════════════════════════════════════════════════════════════════╝\n\n",
+			fmt.Sprintf("%d sats (%d mSat)", p.servicePriceMSat/1000, p.servicePriceMSat),
+			shortStr(rhashHex, 24),
+			shortStr(hex.EncodeToString(cached.Preimage), 24),
+		)
+
+		p.logger.Info("💰 [PAYMENT SETTLED] Preimage revealed — payment transfer complete! Funds settled to Seller Bob",
+			zap.String("payment_hash", shortStr(rhashHex, 16)),
+			zap.Int64("amount_msat", p.servicePriceMSat),
 		)
 	}
 
