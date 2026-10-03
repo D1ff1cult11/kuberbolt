@@ -15,9 +15,9 @@ export default function Dashboard() {
             <span className="stat-label">Network</span>
           </div>
           <div className="stat-value">
-            <span className="badge badge-success">● Online</span>
+            <span className="badge badge-warning">● Status unavailable</span>
           </div>
-          <div className="stat-meta">Connected to Nostr relays (regtest)</div>
+          <div className="stat-meta">Connect the backend to view network status</div>
         </div>
 
         <div className="glass-panel stat-card">
@@ -25,8 +25,8 @@ export default function Dashboard() {
             <div className="stat-icon" style={{ background: 'var(--info-bg)' }}>🤖</div>
             <span className="stat-label">Active Pods</span>
           </div>
-          <div className="stat-value">0</div>
-          <div className="stat-meta">deploy-pod.sh to spin up agents</div>
+          <div className="stat-value">--</div>
+          <div className="stat-meta">Financial Pod status is not connected</div>
         </div>
 
         <div className="glass-panel stat-card">
@@ -34,8 +34,8 @@ export default function Dashboard() {
             <div className="stat-icon" style={{ background: 'var(--warning-bg)' }}>⚡</div>
             <span className="stat-label">Transacted</span>
           </div>
-          <div className="stat-value">0 <span style={{ fontSize: '0.9rem', fontWeight: 400, color: 'var(--text-muted)' }}>sats</span></div>
-          <div className="stat-meta">0 invoices settled</div>
+          <div className="stat-value">--</div>
+          <div className="stat-meta">Transaction totals are not connected</div>
         </div>
       </div>
 
