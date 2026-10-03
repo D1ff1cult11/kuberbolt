@@ -32,14 +32,23 @@ if [ -z "${SDK_SERVER_URL:-}" ]; then
     export SDK_SERVER_URL="${USER_SDK_URL}"
 fi
 
-if [ -z "${BUYER_NOSTR_PRIVKEY:-}" ]; then
-    echo "Enter BUYER_NOSTR_PRIVKEY (hex): "
-    read -rp "BUYER_NOSTR_PRIVKEY: " USER_BUYER_KEY
-    export BUYER_NOSTR_PRIVKEY="${USER_BUYER_KEY}"
+if [ -z "${BUYER_NOSTR_PUBKEY:-}" ]; then
+    read -rp "BUYER_NOSTR_PUBKEY: " BUYER_NOSTR_PUBKEY
+    export BUYER_NOSTR_PUBKEY
+fi
+
+if [ -z "${BUYER_SESSION_TOKEN:-}" ]; then
+    read -rsp "BUYER_SESSION_TOKEN: " BUYER_SESSION_TOKEN
+    echo
+    export BUYER_SESSION_TOKEN
+fi
+
+if [ -z "${BUYER_FP_ADDR:-}" ]; then
+    read -rp "BUYER_FP_ADDR (host:port): " BUYER_FP_ADDR
+    export BUYER_FP_ADDR
 fi
 
 export PYTHONPATH="${REPO_ROOT}/agent-pod/brain:${REPO_ROOT}:${PYTHONPATH:-}"
-export BUYER_FP_ADDR="${BUYER_FP_ADDR:-127.0.0.1:6001}"
 
 PROMPT="${1:-Find a text summarization provider on the Kuberbolt network and use it to summarize this text: 'The Lightning Network is a payment channel network built on top of Bitcoin that enables instant, high-volume micropayments with minimal fees.'}"
 
