@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+import base64
 from uuid import uuid4
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_react_agent
@@ -55,8 +56,8 @@ def call_service(host: str, port: int, text_to_summarize: str) -> str:
     target = f"{host}:{port}"
     job_spec = json.dumps({"text": text_to_summarize})
     
-    # Encode job_spec to hex for bytes field in protobuf
-    job_spec_hex = job_spec.encode().hex()
+    # grpcurl encodes protobuf bytes fields as base64 in JSON.
+    job_spec_base64 = base64.b64encode(job_spec.encode()).decode()
     
     try:
         # Using grpcurl to communicate with the local Financial Pod
@@ -65,7 +66,7 @@ def call_service(host: str, port: int, text_to_summarize: str) -> str:
             json.dumps({
                 "provider_endpoint": target, 
                 "service_kind": "text-summarization", 
-                "job_spec": job_spec_hex
+                "job_spec": job_spec_base64
             }),
             BUYER_FP_ADDR,
             "kuberbolt.v1.FinancialPodService/CallService"

@@ -50,6 +50,9 @@ message CallServiceRequest {
 
   // Present only on the authenticated retry (after payment).
   string preimage_hex = 4;
+
+  // Set by a buyer's local Financial Pod to route the request to a provider.
+  string provider_endpoint = 5;
 }
 
 message CallServiceResponse {

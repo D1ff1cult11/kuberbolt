@@ -128,38 +128,32 @@ func (r *RequesterSide) CallProvider(
 	}
 	result, err := r.sendAuthenticated(ctx, conn, authReq)
 	if err != nil {
-		// Provider rejected us or compute failed. Payment goroutine will
-		// eventually time out; mark ledger accordingly.
 		r.logger.Error("authenticated retry failed", zap.Error(err))
 		_ = r.db.UpdateStatus(jobID, "expired")
 		return nil, fmt.Errorf("requester: authenticated retry: %w", err)
 	}
 
-	// 7. Record spend in budget and mark ledger settled.
-	r.budget.RecordSpend(challenge.AmountMsat)
-	_ = r.db.UpdateStatus(jobID, "settled")
+	// 7. Do not account for the spend until LND confirms settlement.
+	// The provider response alone is not proof that the payment succeeded.
+	var payErr error
+	select {
+	case payErr = <-payErrCh:
+	case <-ctx.Done():
+		payErr = ctx.Err()
+	}
+	if payErr != nil {
+		_ = r.db.UpdateStatus(jobID, "expired")
+		return nil, fmt.Errorf("requester: payment not settled: %w", payErr)
+	}
 
+	r.budget.RecordSpend(challenge.AmountMsat)
+	if err := r.db.UpdateStatus(jobID, "settled"); err != nil {
+		return nil, fmt.Errorf("requester: record settled payment: %w", err)
+	}
 	r.logger.Info("CallProvider completed successfully",
 		zap.String("job_id", jobID),
 		zap.Int64("amount_msat", challenge.AmountMsat),
 	)
-
-	// 8. Wait for payment goroutine. The provider already called SettleInvoice,
-	//    so SendPayment should return almost immediately here.
-	select {
-	case payErr := <-payErrCh:
-		if payErr != nil {
-			r.logger.Warn("background payment goroutine returned error",
-				zap.String("job_id", jobID),
-				zap.Error(payErr),
-			)
-		}
-	case <-ctx.Done():
-		r.logger.Warn("context cancelled while waiting for payment confirmation",
-			zap.String("job_id", jobID),
-		)
-	}
-
 	return result, nil
 }
 

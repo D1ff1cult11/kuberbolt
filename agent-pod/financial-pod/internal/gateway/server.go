@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // ErrPaymentRequired is returned by ProviderSide when a request lacks credentials.
@@ -150,13 +151,30 @@ func (s *Server) l402Interceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
+	start := time.Now()
 	switch info.FullMethod {
 	case "/kuberbolt.v1.FinancialPodService/GetBudgetInfo",
 		"/kuberbolt.v1.FinancialPodService/GetChannelInfo",
 		"/kuberbolt.v1.FinancialPodService/PayHoldInvoice":
-		return handler(ctx, req)
+		response, err := handler(ctx, req)
+		s.logRPC(info.FullMethod, start, err)
+		return response, err
 	}
-	return handler(ctx, req)
+	response, err := handler(ctx, req)
+	s.logRPC(info.FullMethod, start, err)
+	return response, err
+}
+
+func (s *Server) logRPC(method string, start time.Time, err error) {
+	fields := []zap.Field{
+		zap.String("method", method),
+		zap.Duration("duration", time.Since(start)),
+	}
+	if err != nil {
+		s.logger.Error("gRPC RPC failed", append(fields, zap.Error(err))...)
+		return
+	}
+	s.logger.Info("gRPC RPC completed", fields...)
 }
 
 // backgroundTasks runs periodic maintenance: cache cleanup.
@@ -192,6 +210,11 @@ func (s *Server) Stop(_ context.Context) error {
 // CallService routes an inbound request through the provider-side L402 handler.
 // Implements financialPodServiceServer.
 func (s *Server) CallService(ctx context.Context, req *pb.CallServiceRequest) (*pb.CallServiceResponse, error) {
+	if req.ProviderEndpoint != "" {
+		forwarded := proto.Clone(req).(*pb.CallServiceRequest)
+		forwarded.ProviderEndpoint = ""
+		return s.requester.CallProvider(ctx, req.ProviderEndpoint, forwarded)
+	}
 	response, err := s.provider.HandleCallService(ctx, req)
 	if paymentRequired, ok := err.(*ErrPaymentRequired); ok {
 		return nil, paymentRequiredStatus(paymentRequired)

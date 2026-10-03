@@ -20,6 +20,9 @@ async def request_endpoint(
     start_time = time.perf_counter()
     event = await agent.send_handshake(req.provider_pubkey, req.payload)
     replies = await agent.fetch_handshake_replies(timeout_secs=req.timeout_seconds)
+    expected_job_id = req.payload.get("job_id")
+    if expected_job_id:
+        replies = [reply for reply in replies if reply.get("job_id") == expected_job_id]
     duration_ms = int((time.perf_counter() - start_time) * 1000)
 
     return RequestEndpointResponse(

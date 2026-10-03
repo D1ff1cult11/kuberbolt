@@ -37,6 +37,7 @@ from nostr_sdk import (
     Nip44Version,
     PublicKey,
     ReqTarget,
+    SingleLetterTag,
     Tag,
     nip44_decrypt,
     nip44_encrypt,
@@ -83,6 +84,8 @@ async def fetch_handshake_events(client: Client, recipient_pubkey: PublicKey,
                                  timeout_secs: int = 10) -> list[Event]:
     """Fetch events addressed to `recipient_pubkey` (via a 'p' tag) of our
     handshake kind. Call `decrypt_event(my_keys, ev)` on each result."""
-    f = Filter().kind(Kind(KIND_HANDSHAKE)).pubkey(recipient_pubkey)
+    f = Filter().kind(Kind(KIND_HANDSHAKE)).custom_tag(
+        SingleLetterTag.from_byte(ord("p")), recipient_pubkey.to_hex()
+    )
     events = await client.fetch_events(ReqTarget.auto([f]), timedelta(seconds=timeout_secs))
     return list(events)

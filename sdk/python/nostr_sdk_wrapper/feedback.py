@@ -18,10 +18,10 @@ async def publish_feedback(
         feedback_text: str,
         rating: int,
 ) -> Event:
-    """Publish feedback for a completed job as a kind:7000 event."""
+    job_id_str = job_id.to_hex() if hasattr(job_id, "to_hex") else str(job_id)
     content = json.dumps(
         {
-            "job_id": job_id,
+            "job_id": job_id_str,
             "feedback": feedback_text,
             "rating": rating,
         },
@@ -30,7 +30,7 @@ async def publish_feedback(
     event = (
         EventBuilder(Kind(KIND_FEEDBACK), content)
         .tags([
-            Tag.event(job_id),
+            Tag.parse(["e", job_id_str]),
             Tag.public_key(counterparty_pubkey),
         ])
         .finalize(reviewer_keys)

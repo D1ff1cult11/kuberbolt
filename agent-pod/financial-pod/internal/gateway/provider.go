@@ -296,28 +296,13 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 			zap.Error(err),
 			zap.String("rhash", shortStr(rhashHex, 12)),
 		)
-		// We cannot cancel here — compute was done. Log and return result anyway.
-		// A retry of SettleInvoice should be added in production.
-	} else {
-		fmt.Printf("\n"+
-			"╔══════════════════════════════════════════════════════════════════════╗\n"+
-			"║ 💰 PAYMENT SETTLED — TRANSFER COMPLETE!                              ║\n"+
-			"║  Settled To:   Seller Node Bob (Channel Balance Increased)           ║\n"+
-			"║  Amount:       %-50s    ║\n"+
-			"║  Payment Hash: %-50s    ║\n"+
-			"║  Preimage:     %-50s    ║\n"+
-			"║  Status:       Funds claimed! Preimage revealed to Buyer             ║\n"+
-			"╚══════════════════════════════════════════════════════════════════════╝\n\n",
-			fmt.Sprintf("%d sats (%d mSat)", p.servicePriceMSat/1000, p.servicePriceMSat),
-			shortStr(rhashHex, 24),
-			shortStr(hex.EncodeToString(cached.Preimage), 24),
-		)
-
-		p.logger.Info("💰 [PAYMENT SETTLED] Preimage revealed — payment transfer complete! Funds settled to Seller Bob",
-			zap.String("payment_hash", shortStr(rhashHex, 16)),
-			zap.Int64("amount_msat", p.servicePriceMSat),
-		)
+		return nil, fmt.Errorf("provider: settle invoice: %w", err)
 	}
+
+	p.logger.Info("payment settled",
+		zap.String("payment_hash", shortStr(rhashHex, 16)),
+		zap.Int64("amount_msat", p.servicePriceMSat),
+	)
 
 	// 9. Update ledger to settled.
 	if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "settled"); err != nil {
