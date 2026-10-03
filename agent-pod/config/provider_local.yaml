@@ -1,8 +1,8 @@
 agent:
   name: provider
   role: provider
-  nostr_npub: "9c42fc691365887b248a9f12b944a322fd5706002e90f1e16f66988c6a5fb66b"
-  nostr_priv_key: "b4b0de33873b18ee5f7851dfb0e96b3abc8520c12d7e478aae0e3cd44b8bfa64"
+  nostr_npub: ""
+  nostr_priv_key: ""
   created_at: "2026-10-04T00:00:00Z"
 services:
   - name: local-compute
@@ -20,8 +20,8 @@ lightning:
   network: regtest
   lnd_host: 127.0.0.1
   lnd_grpc_port: 10002
-  tls_cert_path: /Users/tanaybhatt/kuber-uday/lightning-infra/bob-data/tls.cert
-  macaroon_path: /Users/tanaybhatt/kuber-uday/lightning-infra/bob-data/data/chain/bitcoin/regtest/admin.macaroon
+  tls_cert_path: ""
+  macaroon_path: ""
 budget:
   daily_limit_msat: 100000000
   monthly_limit_msat: 3000000000

@@ -8,10 +8,16 @@ from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import PromptTemplate
 from langchain.tools import tool
 
-SDK_SERVER = os.getenv("SDK_SERVER_URL", "http://127.0.0.1:8000")
+SDK_SERVER = os.getenv("SDK_SERVER_URL", "")
 BUYER_PUBKEY = os.getenv("BUYER_NOSTR_PUBKEY", "")
 BUYER_SESSION_TOKEN = os.getenv("BUYER_SESSION_TOKEN", "")
-BUYER_FP_ADDR = os.getenv("BUYER_FP_ADDR", "127.0.0.1:6001")
+BUYER_FP_ADDR = os.getenv("BUYER_FP_ADDR", "")
+
+
+def required_setting(name: str, value: str) -> str:
+    if not value:
+        raise RuntimeError(f"{name} must be set")
+    return value
 
 
 def sdk_auth_headers() -> dict[str, str]:
@@ -26,7 +32,10 @@ def sdk_auth_headers() -> dict[str, str]:
 @tool
 def discover_providers(category: str) -> list[dict]:
     """Find service providers by category on the Nostr network."""
-    resp = requests.get(f"{SDK_SERVER}/api/providers", params={"category": category})
+    resp = requests.get(
+        f"{required_setting('SDK_SERVER_URL', SDK_SERVER)}/api/providers",
+        params={"category": category},
+    )
     resp.raise_for_status()
     return resp.json().get("items", [])
 
@@ -34,7 +43,7 @@ def discover_providers(category: str) -> list[dict]:
 def request_endpoint(provider_pubkey: str) -> dict:
     """Send a NIP-44 encrypted DM to resolve the provider's private gRPC endpoint."""
     resp = requests.post(
-        f"{SDK_SERVER}/api/requests",
+        f"{required_setting('SDK_SERVER_URL', SDK_SERVER)}/api/requests",
         headers=sdk_auth_headers(),
         json={
             "agent_pubkey": BUYER_PUBKEY,
@@ -68,7 +77,7 @@ def call_service(host: str, port: int, text_to_summarize: str) -> str:
                 "service_kind": "text-summarization", 
                 "job_spec": job_spec_base64
             }),
-            BUYER_FP_ADDR,
+            required_setting("BUYER_FP_ADDR", BUYER_FP_ADDR),
             "kuberbolt.v1.FinancialPodService/CallService"
         ], capture_output=True, text=True, check=True)
         return result.stdout
@@ -81,7 +90,7 @@ def call_service(host: str, port: int, text_to_summarize: str) -> str:
 def publish_feedback(provider_pubkey: str, job_id: str, rating: int, feedback: str) -> dict:
     """Publish on-chain feedback for a completed job."""
     resp = requests.post(
-        f"{SDK_SERVER}/api/feedback",
+        f"{required_setting('SDK_SERVER_URL', SDK_SERVER)}/api/feedback",
         headers=sdk_auth_headers(),
         json={
             "reviewer_pubkey": BUYER_PUBKEY,

@@ -39,9 +39,11 @@ if [ -z "${AGENT_FERNET_KEY:-}" ]; then
     exit 1
 fi
 
-export REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"
-export FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-*}"
-export DEFAULT_RELAYS="${DEFAULT_RELAYS:-wss://relay.damus.io,wss://nos.lol}"
+export REDIS_URL="${REDIS_URL:?Set REDIS_URL before starting the API server}"
+export FRONTEND_ORIGIN="${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN before starting the API server}"
+export DEFAULT_RELAYS="${DEFAULT_RELAYS:?Set DEFAULT_RELAYS before starting the API server}"
 
-echo "📡 Binding API server to 0.0.0.0:8000"
-exec uvicorn api.main:app --host 0.0.0.0 --port 8000
+export API_HOST="${API_HOST:-0.0.0.0}"
+export API_PORT="${API_PORT:-8000}"
+echo "📡 Binding API server to ${API_HOST}:${API_PORT}"
+exec uvicorn api.main:app --host "${API_HOST}" --port "${API_PORT}"
