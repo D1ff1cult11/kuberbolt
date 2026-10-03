@@ -20,6 +20,14 @@ else
     echo "⚠️  No virtualenv found at .venv or venv. Using system python3."
 fi
 
+# Load .env file if it exists
+if [ -f "${REPO_ROOT}/.env" ]; then
+    echo "📂 Loading environment variables from .env"
+    set -a
+    source "${REPO_ROOT}/.env"
+    set +a
+fi
+
 # Detect Local LAN IP
 LOCAL_IP=$(python3 -c "
 import sys; sys.path.insert(0, '${REPO_ROOT}/agent-pod/brain');

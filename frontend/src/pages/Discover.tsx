@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 
 interface Provider {
-  service_name: string;
-  agent_pubkey: string;
-  price_sats: number;
-  category: string;
+  service_name?: string;
+  name?: string;
+  nostr_pubkey?: string;
+  agent_pubkey?: string;
+  provider_id?: string;
+  price_sats?: number;
+  category?: string;
 }
 
 const DEMO_PROVIDERS: Provider[] = [
@@ -72,19 +75,25 @@ export default function Discover() {
         </div>
       ) : (
         <div className="card-grid">
-          {providers.map((p, i) => (
-            <div key={i} className="glass-panel provider-card">
-              <div>
-                <div className="provider-name">{p.service_name}</div>
-                <div className="provider-pubkey">{p.agent_pubkey.slice(0, 24)}...</div>
-                <span className="badge badge-success">● Available</span>
+          {providers.map((p, i) => {
+            const pubkey = p.nostr_pubkey || p.agent_pubkey || p.provider_id || '';
+            const title = p.service_name || p.name || 'AI Service';
+            return (
+              <div key={i} className="glass-panel provider-card">
+                <div>
+                  <div className="provider-name">{title}</div>
+                  <div className="provider-pubkey">
+                    {pubkey ? `${pubkey.slice(0, 24)}...` : 'Unknown Identity'}
+                  </div>
+                  <span className="badge badge-success">● Available</span>
+                </div>
+                <div className="provider-footer">
+                  <span className="provider-price">⚡ {p.price_sats ?? 100} sats/req</span>
+                  <button className="btn btn-sm">Connect</button>
+                </div>
               </div>
-              <div className="provider-footer">
-                <span className="provider-price">⚡ {p.price_sats} sats/req</span>
-                <button className="btn btn-sm">Connect</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

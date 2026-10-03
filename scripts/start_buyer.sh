@@ -18,6 +18,14 @@ elif [ -d "${REPO_ROOT}/venv" ]; then
     source "${REPO_ROOT}/venv/bin/activate"
 fi
 
+# Load .env file if it exists
+if [ -f "${REPO_ROOT}/.env" ]; then
+    echo "📂 Loading environment variables from .env"
+    set -a
+    source "${REPO_ROOT}/.env"
+    set +a
+fi
+
 if [ -z "${SDK_SERVER_URL:-}" ]; then
     echo "Enter SDK Server URL (Machine C) [e.g. http://192.168.1.50:8000]: "
     read -rp "SDK_SERVER_URL: " USER_SDK_URL

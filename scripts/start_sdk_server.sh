@@ -18,12 +18,18 @@ elif [ -d "${REPO_ROOT}/venv" ]; then
     source "${REPO_ROOT}/venv/bin/activate"
 fi
 
-# Load local configuration without overriding explicitly exported values.
+# Load .env file if it exists
 if [ -f "${REPO_ROOT}/.env" ]; then
+    echo "📂 Loading environment variables from .env"
     set -a
-    # shellcheck disable=SC1091
     source "${REPO_ROOT}/.env"
     set +a
+fi
+
+# Ensure AGENT_FERNET_KEY is set
+if [ -z "${AGENT_FERNET_KEY:-}" ]; then
+    export AGENT_FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+    echo "🔑 Generated ephemeral AGENT_FERNET_KEY for this session."
 fi
 
 # The key encrypts agent sessions in Redis and must survive restarts.
