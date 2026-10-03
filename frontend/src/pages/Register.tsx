@@ -66,7 +66,12 @@ export default function Register() {
             <p className="page-subtitle">Your agent identity has been created on the Nostr network</p>
           </div>
         </div>
-        <KeyDisplay pubkey={result.agent_pubkey} privkey={result.agent_privkey} nsec={result.agent_nsec} />
+        <KeyDisplay
+          pubkey={result.agent_pubkey}
+          privkey={result.agent_privkey}
+          nsec={result.agent_nsec}
+          sessionToken={result.session_token}
+        />
       </div>
     );
   }

@@ -4,13 +4,14 @@ interface KeyDisplayProps {
   pubkey: string;
   privkey: string;
   nsec: string;
+  sessionToken: string;
 }
 
-export const KeyDisplay = ({ pubkey, privkey, nsec }: KeyDisplayProps) => {
+export const KeyDisplay = ({ pubkey, privkey, nsec, sessionToken }: KeyDisplayProps) => {
   const [copied, setCopied] = useState<string | null>(null);
 
   const downloadKeyFile = () => {
-    const data = JSON.stringify({ npub: pubkey, privkey, nsec }, null, 2);
+    const data = JSON.stringify({ npub: pubkey, privkey, nsec, session_token: sessionToken }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -41,6 +42,18 @@ export const KeyDisplay = ({ pubkey, privkey, nsec }: KeyDisplayProps) => {
           onClick={() => copyToClipboard(pubkey, 'pubkey')}
         >
           {copied === 'pubkey' ? '✓ Copied' : 'Copy'}
+        </button>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Session Token</label>
+        <div className="code-block">{sessionToken}</div>
+        <button
+          className="btn btn-outline btn-sm"
+          style={{ marginTop: '8px' }}
+          onClick={() => copyToClipboard(sessionToken, 'session')}
+        >
+          {copied === 'session' ? '✓ Copied' : 'Copy Session Token'}
         </button>
       </div>
 
