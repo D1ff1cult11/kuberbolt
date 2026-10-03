@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kuberbolt/financial-pod/internal/brain"
 	"github.com/kuberbolt/financial-pod/internal/cache"
 	"github.com/kuberbolt/financial-pod/internal/l402"
 	"github.com/kuberbolt/financial-pod/internal/ledger"
@@ -35,6 +36,7 @@ type ProviderSide struct {
 	invoices   *cache.InvoiceCache
 	db         *ledger.DB
 	logger     *zap.Logger
+	compute    brain.Client
 
 	// servicePriceMSat is the price charged per CallService request.
 	// In production this would vary per service kind.
@@ -48,7 +50,12 @@ func newProviderSide(
 	db *ledger.DB,
 	servicePriceMSat int64,
 	logger *zap.Logger,
+	compute ...brain.Client,
 ) *ProviderSide {
+	var computeClient brain.Client = echoCompute{}
+	if len(compute) > 0 && compute[0] != nil {
+		computeClient = compute[0]
+	}
 	return &ProviderSide{
 		lnd:              lnd,
 		macManager:       macManager,
@@ -56,14 +63,15 @@ func newProviderSide(
 		db:               db,
 		servicePriceMSat: servicePriceMSat,
 		logger:           logger,
+		compute:          computeClient,
 	}
 }
 
 // HandleCallService is the entry point for every inbound CallService request.
 // It implements the HODL L402 state machine:
 //
-//	 No macaroon → issue 402 challenge (HODL invoice + macaroon)
-//	 Macaroon present → verify HMAC + wait for HTLC ACCEPTED → compute → settle
+//	No macaroon → issue 402 challenge (HODL invoice + macaroon)
+//	Macaroon present → verify HMAC + wait for HTLC ACCEPTED → compute → settle
 //
 // Note: the client does NOT send a preimage on the authenticated retry.
 // Payment is confirmed by watching the LND invoice state (HTLC ACCEPTED),
@@ -245,7 +253,7 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 	)
 
 	// 7. Run compute. On failure → cancel invoice → client gets refund.
-	result, computeErr := p.runCompute(ctx, req.JobSpec)
+	result, computeErr := p.compute.Compute(ctx, req.ServiceKind, req.JobSpec)
 	if computeErr != nil {
 		p.logger.Error("compute failed, cancelling HODL invoice",
 			zap.Error(computeErr),
@@ -255,9 +263,13 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 			p.logger.Error("failed to cancel invoice after compute failure",
 				zap.Error(err))
 		}
+<<<<<<< HEAD
 		if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "cancelled"); err != nil {
 			p.logger.Warn("failed to update ledger status to cancelled", zap.Error(err))
 		}
+=======
+		_ = p.db.UpdateStatus(cached.JobID, "cancelled")
+>>>>>>> feat/system-wiring
 		p.invoices.DeleteByRHash(cached.RHashHex)
 		return nil, fmt.Errorf("provider: compute failed, invoice cancelled: %w", computeErr)
 	}
@@ -277,9 +289,13 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 	}
 
 	// 9. Update ledger to settled.
+<<<<<<< HEAD
 	if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "settled"); err != nil {
 		p.logger.Warn("failed to update ledger status to settled", zap.Error(err))
 	}
+=======
+	_ = p.db.UpdateStatus(cached.JobID, "settled")
+>>>>>>> feat/system-wiring
 	p.invoices.DeleteByRHash(cached.RHashHex)
 
 	return &pb.CallServiceResponse{
@@ -288,12 +304,13 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 	}, nil
 }
 
-// runCompute is the stub that the Agent implements in production.
-// For now it echoes the job spec back to demonstrate the flow works end-to-end.
-func (p *ProviderSide) runCompute(_ context.Context, jobSpec []byte) ([]byte, error) {
+// echoCompute preserves the deterministic unit-test setup. Production servers
+// use the configured private Brain client instead.
+type echoCompute struct{}
+
+func (echoCompute) Compute(_ context.Context, _ string, jobSpec []byte) ([]byte, error) {
 	if len(jobSpec) == 0 {
 		return []byte(`{"result":"ok","note":"empty job spec"}`), nil
 	}
-	// In production: forward jobSpec to the agent brain and wait for result.
 	return jobSpec, nil
 }

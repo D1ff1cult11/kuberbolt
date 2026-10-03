@@ -12,7 +12,9 @@ import (
 	"github.com/kuberbolt/financial-pod/internal/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // defaultPaymentTimeoutSec is how long SendPayment blocks waiting for HODL to settle.
@@ -197,15 +199,14 @@ func (r *RequesterSide) sendAuthenticated(
 
 // parsePaymentRequired extracts PaymentRequired details from a gRPC error.
 func parsePaymentRequired(err error) (*pb.PaymentRequired, error) {
-	pErr, ok := err.(*ErrPaymentRequired)
-	if !ok {
-		return nil, fmt.Errorf("not a PaymentRequired error")
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.PermissionDenied {
+		return nil, fmt.Errorf("not a payment-required gRPC status")
 	}
-	return &pb.PaymentRequired{
-		Invoice:     pErr.Invoice,
-		MacaroonHex: pErr.MacaroonHex,
-		PaymentHash: pErr.PaymentHash,
-		AmountMsat:  pErr.AmountMSat,
-		ExpirySec:   pErr.ExpirySec,
-	}, nil
+	for _, detail := range st.Details() {
+		if challenge, ok := detail.(*pb.PaymentRequired); ok {
+			return challenge, nil
+		}
+	}
+	return nil, fmt.Errorf("payment-required status did not include challenge details")
 }

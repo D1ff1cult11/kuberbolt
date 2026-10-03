@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/kuberbolt/financial-pod/internal/brain"
 	"github.com/kuberbolt/financial-pod/internal/budget"
 	"github.com/kuberbolt/financial-pod/internal/cache"
 	"github.com/kuberbolt/financial-pod/internal/config"
@@ -15,6 +16,8 @@ import (
 	"github.com/kuberbolt/financial-pod/internal/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ErrPaymentRequired is returned by ProviderSide when a request lacks credentials.
@@ -37,6 +40,8 @@ func (e *ErrPaymentRequired) Error() string {
 //   - RequesterSide: makes outbound L402 payments to other pods
 //   - gRPC server: listens for incoming connections
 type Server struct {
+	pb.UnimplementedFinancialPodServiceServer
+
 	cfg       *config.Config
 	logger    *zap.Logger
 	lnd       ln.ClientInterface
@@ -89,7 +94,13 @@ func NewServer(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*Se
 		servicePriceMSat = cfg.Services[0].PriceMSat
 	}
 
-	provider := newProviderSide(lndClient, macMgr, invoices, db, servicePriceMSat, logger)
+	brainClient, err := brain.NewHTTPClient(cfg.Brain.URL)
+	if err != nil {
+		db.Close()
+		lndClient.Close()
+		return nil, fmt.Errorf("gateway: configure Brain client: %w", err)
+	}
+	provider := newProviderSide(lndClient, macMgr, invoices, db, servicePriceMSat, logger, brainClient)
 	requester := newRequesterSide(lndClient, bm, db, logger)
 
 	return &Server{
@@ -117,9 +128,7 @@ func (s *Server) Start(ctx context.Context) error {
 		grpc.UnaryInterceptor(s.l402Interceptor),
 	)
 
-	// Register the CallService handler using a minimal service descriptor.
-	// In Phase 3 this will be replaced with proper generated gRPC server.
-	s.grpc.RegisterService(&financialPodServiceDesc, s)
+	pb.RegisterFinancialPodServiceServer(s.grpc, s)
 
 	go func() {
 		s.logger.Info("gRPC server listening", zap.String("addr", addr))
@@ -183,7 +192,11 @@ func (s *Server) Stop(_ context.Context) error {
 // CallService routes an inbound request through the provider-side L402 handler.
 // Implements financialPodServiceServer.
 func (s *Server) CallService(ctx context.Context, req *pb.CallServiceRequest) (*pb.CallServiceResponse, error) {
-	return s.provider.HandleCallService(ctx, req)
+	response, err := s.provider.HandleCallService(ctx, req)
+	if paymentRequired, ok := err.(*ErrPaymentRequired); ok {
+		return nil, paymentRequiredStatus(paymentRequired)
+	}
+	return response, err
 }
 
 // PayHoldInvoice triggers an outgoing payment from this node's wallet.
@@ -211,6 +224,7 @@ func (s *Server) GetBudgetInfo(_ context.Context, _ *pb.GetBudgetInfoRequest) (*
 	}, nil
 }
 
+<<<<<<< HEAD
 // GetChannelInfo returns readiness data (e.g., LND chain sync status).
 func (s *Server) GetChannelInfo(ctx context.Context, _ *pb.GetChannelInfoRequest) (*pb.GetChannelInfoResponse, error) {
 	info, err := s.lnd.GetInfo(ctx)
@@ -278,6 +292,23 @@ var financialPodServiceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "agent_service.proto",
+=======
+// paymentRequiredStatus is the network-safe representation of an L402
+// challenge. A Go error value cannot cross a gRPC connection by itself.
+func paymentRequiredStatus(err *ErrPaymentRequired) error {
+	st := status.New(codes.PermissionDenied, "payment required")
+	withDetails, detailsErr := st.WithDetails(&pb.PaymentRequired{
+		Invoice:     err.Invoice,
+		MacaroonHex: err.MacaroonHex,
+		PaymentHash: err.PaymentHash,
+		AmountMsat:  err.AmountMSat,
+		ExpirySec:   err.ExpirySec,
+	})
+	if detailsErr != nil {
+		return st.Err()
+	}
+	return withDetails.Err()
+>>>>>>> feat/system-wiring
 }
 
 // deriveRootKey produces a 32-byte macaroon signing key from the agent's hex private key.

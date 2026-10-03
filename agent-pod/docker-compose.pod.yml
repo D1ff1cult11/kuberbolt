@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 version: "3.8"
 
 x-common: &common
@@ -53,3 +54,44 @@ volumes:
 networks:
   pod-internal:
     driver: bridge
+=======
+services:
+  daemon:
+    build:
+      context: ./daemon
+      dockerfile: Dockerfile
+    container_name: kuberbolt-daemon
+    ports:
+      - "50051:50051"
+    restart: unless-stopped
+
+  brain:
+    build:
+      context: ./brain
+      dockerfile: Dockerfile
+    container_name: kuberbolt-brain
+    depends_on:
+      - daemon
+    environment:
+      - DAEMON_HOST=daemon
+      - DAEMON_PORT=50051
+      - KUBERBOLT_RELAYS=wss://relay.damus.io,wss://nos.lol
+      - POLL_INTERVAL_SECS=60
+      - NOSTR_FETCH_WINDOW_SECS=3600
+    restart: unless-stopped
+
+  financial-pod:
+    build:
+      context: ./financial-pod
+    command: ["--config", "/config/provider.yaml"]
+    ports:
+      - "6001:6001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./config/provider.yaml:/config/provider.yaml:ro
+      # Created by lightning-infra/docker-compose.lnd.yml after LND starts.
+      - ../lightning-infra/bob-data:/lnd-data:ro
+      - ../lightning-infra/bob-data/tls.cert:/lnd/tls.cert:ro
+      - ../lightning-infra/bob-data/data/chain/bitcoin/regtest/admin.macaroon:/lnd/admin.macaroon:ro
+>>>>>>> feat/system-wiring
