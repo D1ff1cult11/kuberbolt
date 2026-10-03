@@ -17,14 +17,8 @@ import os
 from collections import OrderedDict
 from typing import Any
 
-<<<<<<< HEAD
-
-class AgentRegistry:
-    """Thread-safe registry of active KuberboltAgent instances in session."""
-=======
 import redis.asyncio as aioredis
 from cryptography.fernet import Fernet
->>>>>>> feat/system-wiring
 
 # ---------------------------------------------------------------------------
 # Config
@@ -34,21 +28,11 @@ FERNET_KEY   = os.getenv("AGENT_FERNET_KEY", "")   # must be set in prod
 KEY_PREFIX   = "agent:"
 SESSION_TTL  = 7 * 24 * 3600  # 7 days
 
-<<<<<<< HEAD
-    async def register(self, agent: Any, session_token: str) -> str:
-        async with self._lock:
-            pubkey = agent.pubkey_hex
-            self._agents[pubkey] = agent
-            self._token_hashes[pubkey] = hashlib.sha256(
-                session_token.encode()).digest()
-            return pubkey
-=======
 # ---------------------------------------------------------------------------
 # Redis client (lazy singleton, shared within a worker process)
 # ---------------------------------------------------------------------------
 _redis_client: aioredis.Redis | None = None
 _redis_lock = asyncio.Lock()
->>>>>>> feat/system-wiring
 
 
 async def get_redis() -> aioredis.Redis:

@@ -1,25 +1,17 @@
-<<<<<<< HEAD
 version: "3.8"
 
-x-common: &common
-  restart: unless-stopped
-  networks: [pod-internal]
-
 services:
-  # 1. Financial Pod (Go Daemon)
   financial-pod:
-    <<: *common
     build:
       context: ./financial-pod
       dockerfile: Dockerfile
     command: ["financialpod", "--config", "/config/config.yaml"]
     volumes:
-      - ./config/${AGENT_NAME}:/config:ro
+      - ./config/${AGENT_NAME:-default}:/config:ro
       - ledger-data:/data
     ports:
       - "${GRPC_PORT:-6001}:6001"
     environment:
-      # Developer's Custom Agent Brain address
       - BRAIN_ADDR=${BRAIN_ADDR:-host.docker.internal:50052}
     depends_on:
       lnd-node:
@@ -30,13 +22,11 @@ services:
       timeout: 5s
       retries: 3
 
-  # 2. Lightning Node (LND)
   lnd-node:
-    <<: *common
     image: lightninglabs/lnd:v0.17.0-beta
     command: ["lnd", "--configfile=/config/lnd.conf"]
     volumes:
-      - ./config/${AGENT_NAME}/lnd:/config:ro
+      - ./config/${AGENT_NAME:-default}/lnd:/config:ro
       - lnd-data:/root/.lnd
     ports:
       - "${LND_GRPC_PORT:-10009}:10009"
@@ -51,47 +41,3 @@ volumes:
   ledger-data:
   lnd-data:
 
-networks:
-  pod-internal:
-    driver: bridge
-=======
-services:
-  daemon:
-    build:
-      context: ./daemon
-      dockerfile: Dockerfile
-    container_name: kuberbolt-daemon
-    ports:
-      - "50051:50051"
-    restart: unless-stopped
-
-  brain:
-    build:
-      context: ./brain
-      dockerfile: Dockerfile
-    container_name: kuberbolt-brain
-    depends_on:
-      - daemon
-    environment:
-      - DAEMON_HOST=daemon
-      - DAEMON_PORT=50051
-      - KUBERBOLT_RELAYS=wss://relay.damus.io,wss://nos.lol
-      - POLL_INTERVAL_SECS=60
-      - NOSTR_FETCH_WINDOW_SECS=3600
-    restart: unless-stopped
-
-  financial-pod:
-    build:
-      context: ./financial-pod
-    command: ["--config", "/config/provider.yaml"]
-    ports:
-      - "6001:6001"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ./config/provider.yaml:/config/provider.yaml:ro
-      # Created by lightning-infra/docker-compose.lnd.yml after LND starts.
-      - ../lightning-infra/bob-data:/lnd-data:ro
-      - ../lightning-infra/bob-data/tls.cert:/lnd/tls.cert:ro
-      - ../lightning-infra/bob-data/data/chain/bitcoin/regtest/admin.macaroon:/lnd/admin.macaroon:ro
->>>>>>> feat/system-wiring

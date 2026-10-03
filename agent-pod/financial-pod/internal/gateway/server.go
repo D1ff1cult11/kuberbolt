@@ -224,7 +224,6 @@ func (s *Server) GetBudgetInfo(_ context.Context, _ *pb.GetBudgetInfoRequest) (*
 	}, nil
 }
 
-<<<<<<< HEAD
 // GetChannelInfo returns readiness data (e.g., LND chain sync status).
 func (s *Server) GetChannelInfo(ctx context.Context, _ *pb.GetChannelInfoRequest) (*pb.GetChannelInfoResponse, error) {
 	info, err := s.lnd.GetInfo(ctx)
@@ -236,63 +235,6 @@ func (s *Server) GetChannelInfo(ctx context.Context, _ *pb.GetChannelInfoRequest
 	}, nil
 }
 
-// financialPodServiceServer is the interface the Server fulfils for gRPC registration.
-type financialPodServiceServer interface {
-	CallService(context.Context, *pb.CallServiceRequest) (*pb.CallServiceResponse, error)
-	PayHoldInvoice(context.Context, *pb.PayHoldInvoiceRequest) (*pb.PayHoldInvoiceResponse, error)
-	GetBudgetInfo(context.Context, *pb.GetBudgetInfoRequest) (*pb.GetBudgetInfoResponse, error)
-	GetChannelInfo(context.Context, *pb.GetChannelInfoRequest) (*pb.GetChannelInfoResponse, error)
-}
-
-// financialPodServiceDesc is the minimal gRPC service descriptor, replacing protoc output.
-var financialPodServiceDesc = grpc.ServiceDesc{
-	ServiceName: "kuberbolt.v1.FinancialPodService",
-	HandlerType: (*financialPodServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "CallService",
-			Handler: func(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
-				var req pb.CallServiceRequest
-				if err := dec(&req); err != nil {
-					return nil, err
-				}
-				return srv.(financialPodServiceServer).CallService(ctx, &req)
-			},
-		},
-		{
-			MethodName: "PayHoldInvoice",
-			Handler: func(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
-				var req pb.PayHoldInvoiceRequest
-				if err := dec(&req); err != nil {
-					return nil, err
-				}
-				return srv.(financialPodServiceServer).PayHoldInvoice(ctx, &req)
-			},
-		},
-		{
-			MethodName: "GetBudgetInfo",
-			Handler: func(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
-				var req pb.GetBudgetInfoRequest
-				if err := dec(&req); err != nil {
-					return nil, err
-				}
-				return srv.(financialPodServiceServer).GetBudgetInfo(ctx, &req)
-			},
-		},
-		{
-			MethodName: "GetChannelInfo",
-			Handler: func(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
-				var req pb.GetChannelInfoRequest
-				if err := dec(&req); err != nil {
-					return nil, err
-				}
-				return srv.(financialPodServiceServer).GetChannelInfo(ctx, &req)
-			},
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "agent_service.proto",
-=======
 // paymentRequiredStatus is the network-safe representation of an L402
 // challenge. A Go error value cannot cross a gRPC connection by itself.
 func paymentRequiredStatus(err *ErrPaymentRequired) error {
@@ -308,7 +250,6 @@ func paymentRequiredStatus(err *ErrPaymentRequired) error {
 		return st.Err()
 	}
 	return withDetails.Err()
->>>>>>> feat/system-wiring
 }
 
 // deriveRootKey produces a 32-byte macaroon signing key from the agent's hex private key.

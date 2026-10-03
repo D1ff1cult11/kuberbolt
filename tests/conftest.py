@@ -209,5 +209,4 @@ def client(mock_agent):
             yield TestClient(app, raise_server_exceptions=False)
 
         finally:
-            _registry._agents.pop(FAKE_PUBKEY,None)
-            _registry._token_hashes.pop(FAKE_PUBKEY,None)
+            _lru._cache.pop(FAKE_PUBKEY, None)

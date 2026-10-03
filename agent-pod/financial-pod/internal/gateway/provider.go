@@ -263,13 +263,9 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 			p.logger.Error("failed to cancel invoice after compute failure",
 				zap.Error(err))
 		}
-<<<<<<< HEAD
 		if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "cancelled"); err != nil {
 			p.logger.Warn("failed to update ledger status to cancelled", zap.Error(err))
 		}
-=======
-		_ = p.db.UpdateStatus(cached.JobID, "cancelled")
->>>>>>> feat/system-wiring
 		p.invoices.DeleteByRHash(cached.RHashHex)
 		return nil, fmt.Errorf("provider: compute failed, invoice cancelled: %w", computeErr)
 	}
@@ -289,13 +285,9 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 	}
 
 	// 9. Update ledger to settled.
-<<<<<<< HEAD
 	if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "settled"); err != nil {
 		p.logger.Warn("failed to update ledger status to settled", zap.Error(err))
 	}
-=======
-	_ = p.db.UpdateStatus(cached.JobID, "settled")
->>>>>>> feat/system-wiring
 	p.invoices.DeleteByRHash(cached.RHashHex)
 
 	return &pb.CallServiceResponse{
