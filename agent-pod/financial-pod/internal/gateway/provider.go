@@ -299,7 +299,18 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 		return nil, fmt.Errorf("provider: settle invoice: %w", err)
 	}
 
-	p.logger.Info("payment settled",
+	fmt.Printf("\n"+
+		"╔══════════════════════════════════════════════════════════════════════╗\n"+
+		"║ 💰 PAYMENT SETTLED — FUNDS CLAIMED VIA PREIMAGE                     ║\n"+
+		"║  Amount:       %-50s    ║\n"+
+		"║  Payment Hash: %-50s    ║\n"+
+		"║  Status:       Invoice settled on Lightning -> Compute returned!      ║\n"+
+		"╚══════════════════════════════════════════════════════════════════════╝\n\n",
+		fmt.Sprintf("%d sats (%d mSat)", p.servicePriceMSat/1000, p.servicePriceMSat),
+		shortStr(rhashHex, 24),
+	)
+
+	p.logger.Info("💰 [PAYMENT SETTLED] Preimage revealed, payment completed",
 		zap.String("payment_hash", shortStr(rhashHex, 16)),
 		zap.Int64("amount_msat", p.servicePriceMSat),
 	)

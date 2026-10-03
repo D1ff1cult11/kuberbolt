@@ -3,6 +3,8 @@ package ledger
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -39,6 +41,11 @@ type PaymentHold struct {
 
 // Open opens (or creates) the SQLite database at dbPath and applies the schema.
 func Open(dbPath string) (*DB, error) {
+	if dir := filepath.Dir(dbPath); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("ledger: create dir %q: %w", dir, err)
+		}
+	}
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("ledger: open %q: %w", dbPath, err)
