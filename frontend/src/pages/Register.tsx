@@ -9,7 +9,9 @@ export default function Register() {
     role: 'merchant',
     displayName: '',
     nodePubkey: '',
+    lightningAddress: '',
     serviceName: '',
+    serviceCategory: 'text-summarization',
     priceSats: 100
   });
 
@@ -22,12 +24,13 @@ export default function Register() {
       role: formData.role,
       display_name: formData.displayName,
       lightning: {
-        node_pubkey: formData.nodePubkey
+        node_pubkey: formData.nodePubkey,
+        lightning_address: formData.lightningAddress
       },
       ...(formData.role === 'merchant' && {
         service: {
           service_name: formData.serviceName,
-          category: 'compute',
+          category: formData.serviceCategory,
           price_sats: Number(formData.priceSats),
           price_unit: 'per_request'
         }
@@ -119,6 +122,17 @@ export default function Register() {
             </select>
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Lightning Address</label>
+            <input
+              className="input-field"
+              value={formData.lightningAddress}
+              onChange={e => setFormData({ ...formData, lightningAddress: e.target.value })}
+              required
+              placeholder="agent@example.com"
+            />
+          </div>
+
           {formData.role === 'merchant' && (
             <div className="form-section">
               <div className="form-section-title">Service Configuration</div>
@@ -130,6 +144,16 @@ export default function Register() {
                   onChange={e => setFormData({ ...formData, serviceName: e.target.value })}
                   required
                   placeholder="e.g. LLM Inference"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Service Category</label>
+                <input
+                  className="input-field"
+                  value={formData.serviceCategory}
+                  onChange={e => setFormData({ ...formData, serviceCategory: e.target.value })}
+                  required
+                  placeholder="text-summarization"
                 />
               </div>
               <div className="form-group">

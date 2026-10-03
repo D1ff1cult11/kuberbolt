@@ -8,8 +8,19 @@ from langchain_core.prompts import PromptTemplate
 from langchain.tools import tool
 
 SDK_SERVER = os.getenv("SDK_SERVER_URL", "http://127.0.0.1:8000")
-BUYER_PRIVKEY = os.getenv("BUYER_NOSTR_PRIVKEY", "")
+BUYER_PUBKEY = os.getenv("BUYER_NOSTR_PUBKEY", "")
+BUYER_SESSION_TOKEN = os.getenv("BUYER_SESSION_TOKEN", "")
 BUYER_FP_ADDR = os.getenv("BUYER_FP_ADDR", "127.0.0.1:6001")
+
+
+def sdk_auth_headers() -> dict[str, str]:
+    """Build the bearer authentication header issued during registration."""
+    if not BUYER_PUBKEY or not BUYER_SESSION_TOKEN:
+        raise RuntimeError(
+            "BUYER_NOSTR_PUBKEY and BUYER_SESSION_TOKEN must be set "
+            "from the SDK registration response"
+        )
+    return {"Authorization": f"Bearer {BUYER_SESSION_TOKEN}"}
 
 @tool
 def discover_providers(category: str) -> list[dict]:
@@ -21,12 +32,16 @@ def discover_providers(category: str) -> list[dict]:
 @tool
 def request_endpoint(provider_pubkey: str) -> dict:
     """Send a NIP-44 encrypted DM to resolve the provider's private gRPC endpoint."""
-    resp = requests.post(f"{SDK_SERVER}/api/requests", json={
-        "nostr_privkey": BUYER_PRIVKEY,
-        "provider_pubkey": provider_pubkey,
-        "payload": {"action": "resolve_endpoint", "job_id": str(uuid4())},
-        "timeout_seconds": 30,
-    })
+    resp = requests.post(
+        f"{SDK_SERVER}/api/requests",
+        headers=sdk_auth_headers(),
+        json={
+            "agent_pubkey": BUYER_PUBKEY,
+            "provider_pubkey": provider_pubkey,
+            "payload": {"action": "resolve_endpoint", "job_id": str(uuid4())},
+            "timeout_seconds": 30,
+        },
+    )
     resp.raise_for_status()
     return resp.json()["result"]
 
@@ -64,13 +79,17 @@ def call_service(host: str, port: int, text_to_summarize: str) -> str:
 @tool
 def publish_feedback(provider_pubkey: str, job_id: str, rating: int, feedback: str) -> dict:
     """Publish on-chain feedback for a completed job."""
-    resp = requests.post(f"{SDK_SERVER}/api/feedback", json={
-        "reviewer_privkey": BUYER_PRIVKEY,
-        "counterparty_pubkey": provider_pubkey,
-        "job_id": job_id,
-        "feedback_text": feedback,
-        "rating": rating,
-    })
+    resp = requests.post(
+        f"{SDK_SERVER}/api/feedback",
+        headers=sdk_auth_headers(),
+        json={
+            "reviewer_pubkey": BUYER_PUBKEY,
+            "counterparty_pubkey": provider_pubkey,
+            "job_id": job_id,
+            "feedback_text": feedback,
+            "rating": rating,
+        },
+    )
     resp.raise_for_status()
     return resp.json()
 
