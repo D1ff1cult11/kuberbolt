@@ -29,7 +29,7 @@ export default function Discover() {
   const fetchProviders = async () => {
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = import.meta.env.VITE_API_URL || '';
       const res = await fetch(`${apiUrl}/api/providers?category=text-summarization`);
       if (res.ok) {
         const data = await res.json();

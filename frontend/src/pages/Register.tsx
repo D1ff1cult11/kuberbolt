@@ -38,7 +38,7 @@ export default function Register() {
     };
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = import.meta.env.VITE_API_URL || '';
       const res = await fetch(`${apiUrl}/api/agents/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
