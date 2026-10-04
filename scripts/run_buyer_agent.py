@@ -28,15 +28,25 @@ def run(prompt: str) -> None:
     session_token = setting("BUYER_SESSION_TOKEN")
     buyer_fp = setting("BUYER_FP_ADDR")
 
-    response = requests.get(
-        f"{sdk_server}/api/providers",
-        params={"category": os.getenv("BUYER_SERVICE_CATEGORY", "text-summarization")},
-        timeout=35,
-    )
-    response.raise_for_status()
-    providers = response.json().get("items", [])
+    category = os.getenv("BUYER_SERVICE_CATEGORY", "text-summarization")
+    providers = []
+    for attempt in range(3):
+        response = requests.get(
+            f"{sdk_server}/api/providers",
+            params={"category": category},
+            timeout=35,
+        )
+        response.raise_for_status()
+        providers = response.json().get("items", [])
+        if providers:
+            break
+        if attempt < 2:
+            time.sleep(2)
     if not providers:
-        raise RuntimeError("provider discovery returned no providers")
+        raise RuntimeError(
+            "provider discovery returned no providers: "
+            f"url={sdk_server}/api/providers category={category!r}"
+        )
     provider = providers[0]
     provider_pubkey = provider.get("nostr_pubkey") or provider.get("provider_id")
     if not provider_pubkey:
