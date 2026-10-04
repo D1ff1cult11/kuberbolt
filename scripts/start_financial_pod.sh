@@ -14,4 +14,4 @@ echo "=================================================================="
 echo "⚡ Starting Financial Pod gRPC Server (:6001)"
 echo "=================================================================="
 
-exec go run ./cmd/financialpod --config "${REPO_ROOT}/agent-pod/config/provider_local.yaml"
+exec go run ./cmd/financialpod --config "${REPO_ROOT}/kuberbolt-config/seller.yaml"
