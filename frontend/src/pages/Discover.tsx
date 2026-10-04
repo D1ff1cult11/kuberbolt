@@ -26,15 +26,38 @@ export default function Discover() {
       const apiUrl = import.meta.env.VITE_API_URL || '';
       const category = import.meta.env.VITE_PROVIDER_CATEGORY || 'text-summarization';
       const res = await fetch(`${apiUrl}/api/providers?category=${encodeURIComponent(category)}`);
+      const contentType = res.headers.get('content-type') || '';
+
       if (res.ok) {
+        if (!contentType.includes('application/json')) {
+          throw new Error('API returned an unexpected response. Make sure the backend server is running on port 8000.');
+        }
         const data = await res.json();
         setProviders(data.items || []);
       } else {
-        throw new Error(`Provider search failed (${res.status})`);
+        let errorMsg = `Provider search failed (${res.status})`;
+        if (contentType.includes('application/json')) {
+          try {
+            const errData = await res.json();
+            if (errData?.detail) {
+              errorMsg = typeof errData.detail === 'string' ? errData.detail : JSON.stringify(errData.detail);
+            }
+          } catch {
+            // ignore JSON parse error
+          }
+        } else if (res.status === 502 || res.status === 504) {
+          errorMsg = 'Could not reach backend API (502/504). Ensure the backend server is running on port 8000.';
+        }
+        throw new Error(errorMsg);
       }
     } catch (err) {
       setProviders([]);
-      setError(err instanceof Error ? err.message : 'Could not reach the provider directory.');
+      const message = err instanceof Error ? err.message : 'Could not reach the provider directory.';
+      if (message.includes('Unexpected token') || message.includes('is not valid JSON')) {
+        setError('Could not reach backend API. Ensure the backend server is running on port 8000.');
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }

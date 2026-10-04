@@ -6,12 +6,15 @@ import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 from uuid import uuid4
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+REPO_ROOT = Path(__file__).resolve().parents[1]
+FINANCIAL_POD_PROTO_DIR = REPO_ROOT / "agent-pod" / "proto"
 
 
 def setting(name: str) -> str:
@@ -29,6 +32,7 @@ def run(prompt: str) -> None:
     buyer_fp = setting("BUYER_FP_ADDR")
 
     category = os.getenv("BUYER_SERVICE_CATEGORY", "text-summarization")
+    configured_provider_pubkey = os.getenv("BUYER_PROVIDER_PUBKEY", "").strip()
     providers = []
     for attempt in range(3):
         response = requests.get(
@@ -48,7 +52,9 @@ def run(prompt: str) -> None:
             f"url={sdk_server}/api/providers category={category!r}"
         )
     provider = providers[0]
-    provider_pubkey = provider.get("nostr_pubkey") or provider.get("provider_id")
+    provider_pubkey = configured_provider_pubkey or (
+        provider.get("nostr_pubkey") or provider.get("provider_id")
+    )
     if not provider_pubkey:
         raise RuntimeError("discovered provider has no Nostr public key")
 
@@ -76,13 +82,25 @@ def run(prompt: str) -> None:
 
     job_spec = base64.b64encode(json.dumps({"text": prompt}).encode()).decode()
     grpc_args = [
-        "grpcurl", "-plaintext", "-d", json.dumps({
+        "grpcurl", "-plaintext",
+        "-import-path", str(FINANCIAL_POD_PROTO_DIR),
+        "-proto", "agent_service.proto",
+        "-d", json.dumps({
             "provider_endpoint": f"{host}:{port}",
             "service_kind": os.getenv("BUYER_SERVICE_KIND", "text-summarization"),
             "job_spec": job_spec,
         }), buyer_fp, "kuberbolt.v1.FinancialPodService/CallService",
     ]
-    result = subprocess.run(grpc_args, capture_output=True, text=True, timeout=180)
+    try:
+        result = subprocess.run(
+            grpc_args, capture_output=True, text=True, timeout=180
+        )
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(
+            "buyer Financial Pod did not complete the L402 payment within 180 seconds; "
+            "verify that the buyer and seller LND nodes are chain-synced and have "
+            "an active, funded payment channel"
+        ) from error
     if result.returncode != 0:
         raise RuntimeError(f"buyer Financial Pod failed: {result.stderr.strip()}")
     payload = json.loads(result.stdout)

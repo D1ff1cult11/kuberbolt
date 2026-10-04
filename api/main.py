@@ -137,7 +137,7 @@ app = FastAPI(title="Kuberbolt REST API", lifespan=lifespan)
 register_exception_handlers(app)
 
 # CORS middleware (allow frontend origin from env var)
-frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000,http://localhost:5173")
 origins = [o.strip() for o in frontend_origin.split(",") if o.strip()]
 
 app.add_middleware(

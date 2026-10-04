@@ -44,14 +44,27 @@ export default function Register() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = null;
+      if (contentType.includes('application/json')) {
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
+        }
+      }
+
+      if (res.ok && data) {
         setResult(data);
+      } else if (data && data.detail) {
+        setError(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+      } else if (data) {
+        setError(JSON.stringify(data));
       } else {
-        setError(data.detail || JSON.stringify(data));
+        setError(`Registration failed (${res.status}). Make sure the backend server is running on port 8000.`);
       }
     } catch {
-      setError('Could not connect to the API. Make sure the backend is running.');
+      setError('Could not connect to the API. Make sure the backend server is running on port 8000.');
     } finally {
       setLoading(false);
     }

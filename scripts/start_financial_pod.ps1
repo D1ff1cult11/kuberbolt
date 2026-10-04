@@ -28,4 +28,4 @@ Write-Host "==================================================================" 
 New-Item -ItemType Directory -Force "$HOME\.kuberbolt\provider" | Out-Null
 
 Set-Location "$repoRoot\agent-pod\financial-pod"
-go run ./cmd/financialpod --config "$repoRoot\agent-pod\config\provider_win.yaml"
+go run ./cmd/financialpod --config "$repoRoot\kuberbolt-config\buyer.yaml"
