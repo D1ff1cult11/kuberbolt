@@ -439,14 +439,6 @@ class KuberboltAgent:
                         )
                         continue
 
-                    # Record event as seen in SQLite FIRST to prevent races
-                    now_iso = datetime.now(timezone.utc).isoformat()
-                    with conn:
-                        conn.execute(
-                            "INSERT INTO seen_requests (event_id, sender_pubkey, job_id, replied_at) VALUES (?, ?, ?, ?)",
-                            (event_id, sender_pubkey, job_id, now_iso),
-                        )
-
                     # Send handshake response with host and port
                     reply_payload = {
                         "job_id": job_id,
@@ -455,6 +447,12 @@ class KuberboltAgent:
                     }
                     try:
                         await self.send_handshake(sender_pubkey, reply_payload)
+                        now_iso = datetime.now(timezone.utc).isoformat()
+                        with conn:
+                            conn.execute(
+                                "INSERT INTO seen_requests (event_id, sender_pubkey, job_id, replied_at) VALUES (?, ?, ?, ?)",
+                                (event_id, sender_pubkey, job_id, now_iso),
+                            )
                         logger.info(
                             "Successfully replied to resolve_endpoint for job_id %s to %s",
                             job_id,

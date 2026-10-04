@@ -55,10 +55,14 @@ def run(prompt: str) -> None:
         timeout=40,
     )
     response.raise_for_status()
-    endpoint = response.json().get("result") or {}
+    request_result = response.json()
+    endpoint = request_result.get("result") or {}
     host, port = endpoint.get("host"), endpoint.get("port")
     if not host or not port:
-        raise RuntimeError("NIP-44 response did not contain provider host and port")
+        raise RuntimeError(
+            "NIP-44 response did not contain provider host and port: "
+            f"status={request_result.get('status')} response={request_result}"
+        )
 
     job_spec = base64.b64encode(json.dumps({"text": prompt}).encode()).decode()
     grpc_args = [

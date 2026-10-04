@@ -1,3 +1,4 @@
+import asyncio
 import time
 from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -19,10 +20,17 @@ async def request_endpoint(
 
     start_time = time.perf_counter()
     event = await agent.send_handshake(req.provider_pubkey, req.payload)
-    replies = await agent.fetch_handshake_replies(timeout_secs=req.timeout_seconds)
     expected_job_id = req.payload.get("job_id")
-    if expected_job_id:
-        replies = [reply for reply in replies if reply.get("job_id") == expected_job_id]
+    deadline = time.monotonic() + req.timeout_seconds
+    replies = []
+    while time.monotonic() < deadline:
+        remaining = max(1, int(deadline - time.monotonic()))
+        replies = await agent.fetch_handshake_replies(timeout_secs=min(3, remaining))
+        if expected_job_id:
+            replies = [reply for reply in replies if reply.get("job_id") == expected_job_id]
+        if replies:
+            break
+        await asyncio.sleep(0.25)
     duration_ms = int((time.perf_counter() - start_time) * 1000)
 
     return RequestEndpointResponse(
