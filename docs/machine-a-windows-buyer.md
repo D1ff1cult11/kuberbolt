@@ -3,24 +3,23 @@
 ## Your Role
 
 You are the **buyer agent operator**. Your machine runs:
-- **Go Financial Pod** — handles L402 payments via gRPC, connected to Alice's LND node on Machine C
-- **LangChain Buyer Agent** — autonomous AI agent that discovers sellers, negotiates endpoints, pays for compute, and publishes feedback
+- **Alice LND Node** (Docker) — your own Lightning wallet, connected to Machine C's bitcoind
+- **Go Financial Pod** — handles L402 payments via gRPC
+- **LangChain Buyer Agent** — discovers sellers, negotiates, pays, gets results
+
+**Your LND credentials never leave this machine.**
 
 ---
 
-## What You Need From Machine C (Linux)
+## What You Need From Machine C
 
-Before starting, get these from your teammate running Machine C:
-
-| Item | What It Is | Example |
-|------|-----------|---------|
-| **Machine C IP** | LAN IP of the Linux machine | `192.168.1.12` |
-| **Alice TLS cert** | File: `tls.cert` | Copy to `kuberbolt-config\tls.cert` |
-| **Alice admin macaroon** | File: `admin.macaroon` | Copy to `kuberbolt-config\admin.macaroon` |
-| **Alice LND pubkey** | 66-char hex string | `02abc123...` |
-| **Buyer agent_pubkey** | From registration | `npub1xyz...` or hex |
-| **Buyer agent_privkey** | From registration | `hex string` |
-| **Buyer session_token** | From registration | `token string` |
+| Item | What It Is |
+|------|-----------|
+| **Machine C IP** | LAN IP of the Linux machine (e.g. `192.168.1.12`) |
+| **Machine B IP** | LAN IP of the macOS machine (e.g. `192.168.1.11`) |
+| **Buyer `agent_pubkey`** | From registration response |
+| **Buyer `agent_privkey`** | From registration response |
+| **Buyer `session_token`** | From registration response |
 
 ---
 
@@ -30,6 +29,7 @@ Before starting, get these from your teammate running Machine C:
 |-------------|---------------|
 | Python 3.11+ | `python --version` |
 | Go 1.21+ | `go version` |
+| Docker Desktop | `docker --version` |
 | Git | `git --version` |
 
 ---
@@ -45,38 +45,99 @@ git pull origin dev
 
 ---
 
-## Step 2: Place LND Credentials
-
-Create the config directory and copy the files you received from Machine C:
+## Step 2: Get Your LAN IP
 
 ```powershell
-mkdir kuberbolt-config -Force
+(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias Wi-Fi).IPAddress
 ```
 
-Copy `tls.cert` and `admin.macaroon` (received from Machine C) into `kuberbolt-config\`.
+Write this down as `<MACHINE_A_IP>`. Share it with Machine B (for Lightning channel).
 
-Verify they exist:
+---
+
+## Step 3: Start Alice LND (Docker)
+
+Alice connects to Machine C's bitcoind over the LAN. Replace `<MACHINE_C_IP>`.
+
 ```powershell
-dir kuberbolt-config\
+docker run -d --name alice `
+  -p 10009:10009 -p 8080:8080 -p 9735:9735 `
+  -v ${PWD}/alice-data:/root/.lnd `
+  lightninglabs/lnd:v0.17.4-beta `
+  --noseedbackup `
+  --trickledelay=5000 `
+  --alias=alice `
+  --bitcoin.active `
+  --bitcoin.regtest `
+  --bitcoin.node=bitcoind `
+  --bitcoind.rpchost=<MACHINE_C_IP>:18443 `
+  --bitcoind.rpcuser=devuser `
+  --bitcoind.rpcpass=devpass `
+  --bitcoind.zmqpubrawblock=tcp://<MACHINE_C_IP>:28332 `
+  --bitcoind.zmqpubrawtx=tcp://<MACHINE_C_IP>:28333 `
+  --rpclisten=0.0.0.0:10009 `
+  --restlisten=0.0.0.0:8080 `
+  --listen=0.0.0.0:9735 `
+  --tlsextradomain=localhost
 ```
 
-Expected:
-```
-    Directory: D:\...\kuberbolt\kuberbolt-config
+Wait 10 seconds, then verify:
 
-Mode                 LastWriteTime         Length Name
-----                 -------------         ------ ----
--a---          10/04/2026  5:30 PM            836 tls.cert
--a---          10/04/2026  5:30 PM            293 admin.macaroon
+```powershell
+docker exec alice lncli --network=regtest getinfo
+```
+
+You should see `"synced_to_chain": true` and `"identity_pubkey": "02abc..."`.
+
+**Write down:**
+- **Alice's LND pubkey** (`identity_pubkey`) — share with Machine C
+- **Alice's wallet address:**
+
+```powershell
+docker exec alice lncli --network=regtest newaddress p2wkh
+```
+
+Share this address with Machine C so they can mine coins to you.
+
+---
+
+## Step 4: Wait for Funding
+
+Tell Machine C to mine 101 blocks to your Alice address. Then verify:
+
+```powershell
+docker exec alice lncli --network=regtest walletbalance
+# Should show non-zero confirmed_balance
 ```
 
 ---
 
-## Step 3: Create Buyer Financial Pod Config
+## Step 5: Open Lightning Channel to Bob
 
-Create `kuberbolt-config\buyer.yaml` with the following content.
+Get Bob's LND pubkey and Machine B's IP from your teammates.
 
-**Replace all `<PLACEHOLDER>` values with real values from Machine C.**
+```powershell
+# Connect to Bob
+docker exec alice lncli --network=regtest connect <BOB_LND_PUBKEY>@<MACHINE_B_IP>:9735
+
+# Open channel (500,000 sats)
+docker exec alice lncli --network=regtest openchannel `
+  --node_key=<BOB_LND_PUBKEY> `
+  --local_amt=500000
+```
+
+Tell Machine C to mine 6 blocks to confirm the channel, then verify:
+
+```powershell
+docker exec alice lncli --network=regtest listchannels
+# Look for "active": true
+```
+
+---
+
+## Step 6: Create Buyer Financial Pod Config
+
+Create `kuberbolt-config\buyer.yaml`:
 
 ```yaml
 agent:
@@ -84,20 +145,22 @@ agent:
   role: client
   nostr_npub: "<BUYER_AGENT_PUBKEY>"
   nostr_priv_key: "<BUYER_AGENT_PRIVKEY>"
-  created_at: "2026-10-04T00:00:00Z"
+  created_at: "2026-10-05T00:00:00Z"
 services: []
 network:
   grpc_port: 6001
   public_host: 0.0.0.0
-  nostr_relays: []
+  nostr_relays:
+    - wss://relay.damus.io
+    - wss://nos.lol
 brain:
   url: http://127.0.0.1:9999
 lightning:
   network: regtest
-  lnd_host: <MACHINE_C_IP>
-  lnd_grpc_port: 10001
-  tls_cert_path: <FULL_PATH_TO>\kuberbolt-config\tls.cert
-  macaroon_path: <FULL_PATH_TO>\kuberbolt-config\admin.macaroon
+  lnd_host: 127.0.0.1
+  lnd_grpc_port: 10009
+  tls_cert_path: ./alice-data/tls.cert
+  macaroon_path: ./alice-data/data/chain/bitcoin/regtest/admin.macaroon
 budget:
   daily_limit_msat: 100000000
   monthly_limit_msat: 3000000000
@@ -106,46 +169,33 @@ logging:
   format: console
 ```
 
-**Important notes:**
-- `lnd_host` = Machine C's LAN IP (where Docker LND runs)
-- `lnd_grpc_port` = `10001` (Alice's mapped port on Machine C)
-- `tls_cert_path` and `macaroon_path` must be **full absolute paths** using forward slashes  
-  Example: `D:/Dev Projects/kuberbolt/kuberbolt-config/tls.cert`
+**Key points:**
+- `lnd_host: 127.0.0.1` — connects to YOUR local Alice LND (no remote connection)
+- `lnd_grpc_port: 10009` — standard LND gRPC port
+- `tls_cert_path` and `macaroon_path` point to YOUR local `alice-data/` directory
+- No credentials leave your machine
 
 ---
 
-## Step 4: Build the Go Financial Pod
+## Step 7: Build and Start the Financial Pod
 
 ```powershell
 cd agent-pod\financial-pod
 go build -o financialpod.exe .\cmd\financialpod
-```
-
-If the build succeeds, you'll see `financialpod.exe` in the current directory.
-
----
-
-## Step 5: Start the Financial Pod
-
-```powershell
 .\financialpod.exe --config ..\..\kuberbolt-config\buyer.yaml
 ```
 
-**Expected output:**
+**Expected:**
 ```
-INFO  gateway: connected to LND   alias=alice  pubkey=02abc123...  synced=true
-INFO  gRPC server listening        addr=0.0.0.0:6001
+INFO  connected to LND   alias=alice  synced=true
+INFO  gRPC server listening  addr=0.0.0.0:6001
 ```
 
-If you see `connected to LND` with `synced=true`, the Financial Pod is successfully connected to Alice's Lightning node on Machine C.
-
-> **Keep this terminal open.** The Financial Pod must stay running.
+> **Keep this terminal open.**
 
 ---
 
-## Step 6: Setup the Buyer Agent (New Terminal)
-
-Open a **new PowerShell terminal**:
+## Step 8: Setup Buyer Agent (New Terminal)
 
 ```powershell
 cd kuberbolt\agent-pod\brain
@@ -156,7 +206,7 @@ pip install -r requirements.txt
 
 ---
 
-## Step 7: Set Environment Variables
+## Step 9: Set Environment Variables and Run
 
 ```powershell
 $env:SDK_SERVER_URL = "http://<MACHINE_C_IP>:8000"
@@ -164,92 +214,47 @@ $env:BUYER_NOSTR_PUBKEY = "<BUYER_AGENT_PUBKEY>"
 $env:BUYER_SESSION_TOKEN = "<BUYER_SESSION_TOKEN>"
 $env:BUYER_FP_ADDR = "127.0.0.1:6001"
 $env:GOOGLE_API_KEY = "<YOUR_GEMINI_API_KEY>"
-```
 
-Replace all `<PLACEHOLDER>` values with the real values from Machine C.
-
----
-
-## Step 8: Run the Buyer Agent
-
-```powershell
-python -m app.buyer_agent "Find a text summarization provider on the Kuberbolt network and use it to summarize this text: 'The Lightning Network is a payment channel network built on top of Bitcoin. It enables instant, low-fee transactions by routing payments through bidirectional payment channels secured by Hash Time-Locked Contracts. Payments achieve sub-second finality with near-zero fees, only touching the base blockchain when channels open or settle.'"
+python -m app.buyer_agent "Find a text summarization provider on the Kuberbolt network and use it to summarize this text: 'The Lightning Network is a payment channel network built on top of Bitcoin. It enables instant, low-fee transactions by routing payments through bidirectional payment channels secured by Hash Time-Locked Contracts.'"
 ```
 
 ---
 
 ## What You Should See
 
-### In the Buyer Agent terminal:
-
 ```
 Running agent with prompt: Find a text summarization provider...
 
-Thought: I need to discover providers that offer text summarization
-Action: discover_providers
-Action Input: text-summarization
-Observation: [{"service_name": "Text Summarization", "agent_pubkey": "npub1..."}]
+Thought: I need to find providers
+Action: discover_providers("text-summarization")
+Observation: [{"service_name": "Text Summarization", ...}]
 
-Thought: I found a provider. Now I need to get their endpoint
-Action: request_endpoint
-Action Input: <seller_pubkey>
+Action: request_endpoint("<seller_pubkey>")
 Observation: {"host": "192.168.1.11", "port": 6001}
 
-Thought: I have the endpoint. Now I'll call the service
-Action: call_service
-Action Input: {"host": "192.168.1.11", "port": 6001, "text_to_summarize": "The Lightning Network..."}
-Observation: {"summary": "The Lightning Network is Bitcoin's layer-2 solution..."}
+Action: call_service("192.168.1.11", 6001, "The Lightning Network...")
+Observation: {"summary": "..."}
 
-Thought: I got the result. Let me publish feedback
-Action: publish_feedback
-Action Input: {"provider_pubkey": "...", "rating": 5, "feedback": "Excellent summarization"}
-
-Final Answer: The text has been summarized: "The Lightning Network is Bitcoin's layer-2 solution..."
-```
-
-### In the Financial Pod terminal:
-
-```
-INFO  gRPC RPC completed  method=/kuberbolt.v1.FinancialPodService/CallService
-INFO  received L402 challenge  payment_hash=abc123...  amount_msat=100000
-INFO  paying HODL invoice in background  payment_hash=abc123...
-INFO  CallProvider completed successfully  job_id=...  amount_msat=100000
+Action: publish_feedback(...)
+Final Answer: Successfully summarized the text!
 ```
 
 ---
 
 ## Troubleshooting
 
-### "LND connection failed"
-- Check Machine C's IP is correct in `buyer.yaml`
-- Verify Alice's LND is running: ask Machine C to run `docker exec alice lncli --network=regtest getinfo`
-- Check Windows Firewall isn't blocking outbound connections to port 10001
-- Verify `tls.cert` and `admin.macaroon` are the correct files from Alice (not Bob)
+### "Alice LND won't sync"
+- Check Machine C's bitcoind is running and port 18443 is accessible
+- Test: `Test-NetConnection -ComputerName <MACHINE_C_IP> -Port 18443`
 
-### "go build" fails
-- Ensure Go 1.21+ is installed: `go version`
-- If module errors: `go mod tidy` then retry
+### "Channel not active"
+- Ask Machine C to mine 6 more blocks
+- Verify: `docker exec alice lncli --network=regtest listchannels`
 
-### "SDK_SERVER_URL connection refused"
-- Verify Machine C's SDK server is running on port 8000
-- Test: `curl http://<MACHINE_C_IP>:8000/health`
-- Check if Machine C's firewall allows incoming on port 8000
+### "grpcurl not found"
+- Install grpcurl: `go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest`
+- Or use Chocolatey: `choco install grpcurl`
 
-### "insufficient balance" or "no route"
-- Ask Machine C to mine more blocks and verify the channel has balance
-- The channel needs to be active with sufficient local balance on Alice's side
-
-### "SELLER_NOSTR_PRIVKEY not set" / "NIP-44 DM not received"
-- This error is on the **seller side** (Machine B) — tell your teammate to check their setup
-- Increase timeout: `$env:KUBERBOLT_HANDSHAKE_TIMEOUT_SECONDS = "60"`
-
----
-
-## Quick Reference
-
-| Service | Address | Port |
-|---------|---------|------|
-| Buyer Financial Pod | `127.0.0.1` | `6001` |
-| Alice LND (on Machine C) | `<MACHINE_C_IP>` | `10001` |
-| SDK Server (on Machine C) | `<MACHINE_C_IP>` | `8000` |
-| Frontend (on Machine C) | `<MACHINE_C_IP>` | `5173` |
+### "Connection refused to seller FP"
+- Check Machine B's firewall allows port 6001
+- Test: `Test-NetConnection -ComputerName <MACHINE_B_IP> -Port 6001`
