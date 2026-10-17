@@ -31,7 +31,6 @@ from nostr_sdk import (
     PublicKey,
     RelayStatus,
     RelayUrl,
-    SecretKey,
     Tag,
 )
 
@@ -102,13 +101,6 @@ class KuberboltAgent:
         await client.connect()
         await asyncio.sleep(connect_wait_secs)
         return cls(keys, client)
-
-    @classmethod
-    async def from_existing_key(cls, privkey_hex: str, relay_urls: list[str],
-                                connect_wait_secs: float) -> "KuberboltAgent":
-        """Construct an agent from a previously issued private key."""
-        keys = Keys(SecretKey.parse(privkey_hex))
-        return await cls.from_keys(keys, relay_urls, connect_wait_secs)
 
     async def connection_report(self) -> dict[str, str]:
         """Returns {relay_url: status_string} -- useful for a caller to
