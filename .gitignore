@@ -46,6 +46,15 @@ MANIFEST
 .env
 examples/*_identity.json
 sdk/python/tests/nip44/my_identity.json
+identity.json
+*_identity.json
+*.macaroon
+*.cert
+# Agent configs live in ~/.kuberbolt/<agent>/; only *.example.yaml templates are committed.
+kuberbolt-config/*.yaml
+!kuberbolt-config/*.example.yaml
+agent-pod/config/
+examples/testnet/*.yaml
 .venv
 env/
 venv/

@@ -1,57 +1,23 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Kuberbolt — Start Buyer Agent (Machine A)
-# ==============================================================================
+# Run the buyer agent with a prompt: scripts/start_buyer.sh "<prompt>"
+# Config: $KUBERBOLT_HOME/$KUBERBOLT_AGENT/config.yaml (KUBERBOLT_HOME defaults to ~/.kuberbolt).
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-
-echo "=================================================================="
-echo "🚀 Starting Kuberbolt Buyer Agent (Machine A)"
-echo "=================================================================="
-
-# Check Python environment
-if [ -d "${REPO_ROOT}/.venv" ]; then
-    source "${REPO_ROOT}/.venv/bin/activate"
-elif [ -d "${REPO_ROOT}/venv" ]; then
-    source "${REPO_ROOT}/venv/bin/activate"
+if [ $# -ne 1 ] || [ -z "$1" ]; then
+    echo "Usage: $0 \"<prompt>\"" >&2
+    exit 1
 fi
 
-# Load .env file if it exists
-if [ -f "${REPO_ROOT}/.env" ]; then
-    echo "📂 Loading environment variables from .env"
-    set -a
-    source "${REPO_ROOT}/.env"
-    set +a
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -f "${REPO_ROOT}/.env" ]; then set -a; source "${REPO_ROOT}/.env"; set +a; fi
+
+: "${KUBERBOLT_AGENT:?Set KUBERBOLT_AGENT to the agent name}"
+CONFIG="${KUBERBOLT_HOME:-$HOME/.kuberbolt}/${KUBERBOLT_AGENT}/config.yaml"
+if [ ! -f "$CONFIG" ]; then
+    echo "No config at $CONFIG. Run: kuberbolt init --name ${KUBERBOLT_AGENT} --role client, then fill in config.yaml." >&2
+    exit 1
 fi
 
-if [ -z "${SDK_SERVER_URL:-}" ]; then
-    echo "Enter SDK Server URL (Machine C) [e.g. http://192.168.1.50:8000]: "
-    read -rp "SDK_SERVER_URL: " USER_SDK_URL
-    export SDK_SERVER_URL="${USER_SDK_URL}"
-fi
-
-if [ -z "${BUYER_NOSTR_PUBKEY:-}" ]; then
-    read -rp "BUYER_NOSTR_PUBKEY: " BUYER_NOSTR_PUBKEY
-    export BUYER_NOSTR_PUBKEY
-fi
-
-if [ -z "${BUYER_SESSION_TOKEN:-}" ]; then
-    read -rsp "BUYER_SESSION_TOKEN: " BUYER_SESSION_TOKEN
-    echo
-    export BUYER_SESSION_TOKEN
-fi
-
-if [ -z "${BUYER_FP_ADDR:-}" ]; then
-    read -rp "BUYER_FP_ADDR (host:port): " BUYER_FP_ADDR
-    export BUYER_FP_ADDR
-fi
-
-export PYTHONPATH="${REPO_ROOT}/agent-pod/brain:${REPO_ROOT}:${PYTHONPATH:-}"
-
-PROMPT="${1:-Find a text summarization provider on the Kuberbolt network and use it to summarize this text: 'The Lightning Network is a payment channel network built on top of Bitcoin that enables instant, high-volume micropayments with minimal fees.'}"
-
-echo ""
-echo "Running Buyer Agent with prompt: \"$PROMPT\""
-exec python3 -m app.buyer_agent "$PROMPT"
+if [ -d "${REPO_ROOT}/.venv" ]; then source "${REPO_ROOT}/.venv/bin/activate"; fi
+export PYTHONPATH="${REPO_ROOT}:${REPO_ROOT}/agent-pod/brain:${REPO_ROOT}/sdk/python:${PYTHONPATH:-}"
+exec python3 -m app.buyer_agent "$1"
