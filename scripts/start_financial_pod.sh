@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Start Kuberbolt Financial Pod (gRPC Server on port 6001)
-# ==============================================================================
+# Start this agent's financial pod. Its gRPC port comes from network.grpc_port in the config.
+# Config: $KUBERBOLT_HOME/$KUBERBOLT_AGENT/config.yaml (KUBERBOLT_HOME defaults to ~/.kuberbolt).
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -f "${REPO_ROOT}/.env" ]; then set -a; source "${REPO_ROOT}/.env"; set +a; fi
 
-mkdir -p "${HOME}/.kuberbolt/provider"
+: "${KUBERBOLT_AGENT:?Set KUBERBOLT_AGENT to the agent name}"
+CONFIG="${KUBERBOLT_HOME:-$HOME/.kuberbolt}/${KUBERBOLT_AGENT}/config.yaml"
+if [ ! -f "$CONFIG" ]; then
+    echo "No config at $CONFIG. Run: kuberbolt init --name ${KUBERBOLT_AGENT} --role <client|merchant>, then fill in config.yaml." >&2
+    exit 1
+fi
+
 cd "${REPO_ROOT}/agent-pod/financial-pod"
-
-echo "=================================================================="
-echo "⚡ Starting Financial Pod gRPC Server (:6001)"
-echo "=================================================================="
-
-exec go run ./cmd/financialpod --config "${REPO_ROOT}/kuberbolt-config/seller.yaml"
+exec go run ./cmd/financialpod --config "$CONFIG"

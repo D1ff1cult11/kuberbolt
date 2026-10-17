@@ -1,31 +1,15 @@
-# Start Kuberbolt Financial Pod gRPC Server (:6001) on Windows PowerShell
+# Start this agent's financial pod. Its gRPC port comes from network.grpc_port in the config.
+# Config: $env:KUBERBOLT_HOME\$env:KUBERBOLT_AGENT\config.yaml (KUBERBOLT_HOME defaults to ~\.kuberbolt).
 $ErrorActionPreference = "Stop"
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = Split-Path -Parent $scriptDir
+$repoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
-# Check if Docker container is already holding port 6001
-$dockerRunning = docker ps --filter "name=agent-pod-financial-pod-1" -q
-if ($dockerRunning) {
-    Write-Host "[!] Docker container 'agent-pod-financial-pod-1' is currently using port 6001." -ForegroundColor Yellow
-    Write-Host "    Stopping Docker container so local Go binary can bind to :6001..." -ForegroundColor Yellow
-    docker stop agent-pod-financial-pod-1
+if (-not $env:KUBERBOLT_AGENT) { throw "Set KUBERBOLT_AGENT to the agent name" }
+$kbHome = if ($env:KUBERBOLT_HOME) { $env:KUBERBOLT_HOME } else { Join-Path $HOME ".kuberbolt" }
+$config = Join-Path (Join-Path $kbHome $env:KUBERBOLT_AGENT) "config.yaml"
+if (-not (Test-Path $config)) {
+    throw "No config at $config. Run: kuberbolt init --name $($env:KUBERBOLT_AGENT) --role <client|merchant>, then fill in config.yaml."
 }
 
-# Free port 6001 if another local process is holding it
-$portProcess = Get-NetTCPConnection -LocalPort 6001 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
-if ($portProcess) {
-    foreach ($pidToKill in $portProcess) {
-        Write-Host "[!] Killing existing process ($pidToKill) holding port 6001..." -ForegroundColor Yellow
-        Stop-Process -Id $pidToKill -Force -ErrorAction SilentlyContinue
-    }
-}
-
-Write-Host "==================================================================" -ForegroundColor Cyan
-Write-Host "⚡ Starting Financial Pod gRPC Server (:6001) via Go" -ForegroundColor Cyan
-Write-Host "==================================================================" -ForegroundColor Cyan
-
-New-Item -ItemType Directory -Force "$HOME\.kuberbolt\provider" | Out-Null
-
-Set-Location "$repoRoot\agent-pod\financial-pod"
-go run ./cmd/financialpod --config "$repoRoot\kuberbolt-config\buyer.yaml"
+Set-Location (Join-Path $repoRoot "agent-pod\financial-pod")
+go run ./cmd/financialpod --config $config
