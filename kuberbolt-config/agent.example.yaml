@@ -1,0 +1,61 @@
+# Kuberbolt agent config: the canonical schema.
+#
+# Lives at $KUBERBOLT_HOME/<agent>/config.yaml (KUBERBOLT_HOME defaults to ~/.kuberbolt).
+# `kuberbolt init --name <agent>` writes a copy of this with empty placeholders.
+# Read by BOTH the Python SDK (nostr_sdk_wrapper.config) and the Go financial pod
+# (internal/config). Every value marked REQUIRED has no default; a missing value is an error.
+
+agent:
+  name: ""                     # REQUIRED. Must match the directory name.
+  role: ""                     # REQUIRED. "client" (buyer) or "merchant" (seller).
+  identity_file: identity.json # REQUIRED. Relative paths resolve against this config's directory.
+  ledger_path: ledger.db       # REQUIRED. Local SQLite (seen_requests, etc.). Relative to config dir.
+  display_name: ""             # REQUIRED. kind:0 profile name.
+  about: ""                    # optional
+  picture_url: ""              # optional
+  lightning_address: ""        # optional (lud16)
+
+# Merchants list what they sell. Clients leave this empty.
+services:
+  - name: ""                   # REQUIRED. Service kind passed to the brain, e.g. a slug.
+    category: ""               # REQUIRED. Discovery tag (published as #t kuberbolt/<category>).
+    description: ""            # REQUIRED.
+    price_msat: 0              # REQUIRED, > 0. The listing advertises price_msat // 1000 sats.
+    price_unit: ""             # REQUIRED, e.g. "per_request".
+    timeout_sec: 0             # REQUIRED, > 0.
+    kind: 0                    # Go-only legacy field. Leave at 0.
+
+network:
+  grpc_port: 0                 # REQUIRED. This agent's financial pod gRPC listen port.
+  public_host: ""              # REQUIRED for merchants. Host/IP advertised to buyers in the handshake.
+  pod_addr: ""                 # REQUIRED for clients. host:port where the local brain reaches its own pod.
+  nostr_relays: []             # REQUIRED, non-empty. e.g. wss://... URLs.
+  relay_connect_wait_sec: 0    # REQUIRED, > 0. Seconds to let relay connections settle.
+  handshake_timeout_sec: 0     # REQUIRED, > 0. How long request_endpoint waits for a reply.
+  discovery_timeout_sec: 0     # REQUIRED, > 0. Relay query timeout for discovery.
+
+brain:
+  url: ""                      # REQUIRED for merchants. Where the pod calls the brain (http://host:port).
+  listen_host: ""              # REQUIRED for merchants. Brain HTTP bind host.
+  listen_port: 0               # REQUIRED for merchants. Brain HTTP bind port.
+  llm_model: ""                # REQUIRED if the brain uses an LLM.
+
+lightning:
+  network: ""                  # REQUIRED. regtest | testnet | mainnet
+  lnd_host: ""                 # REQUIRED.
+  lnd_grpc_port: 0             # REQUIRED.
+  tls_cert_path: ""            # REQUIRED. Absolute, machine-specific.
+  macaroon_path: ""            # REQUIRED. Absolute, machine-specific.
+
+budget:
+  daily_limit_msat: 0          # REQUIRED for clients.
+  monthly_limit_msat: 0        # REQUIRED for clients.
+
+logging:
+  level: ""                    # REQUIRED. debug | info | warn | error
+  format: ""                   # REQUIRED. json | console
+
+# Secrets are NOT stored here. API keys (e.g. GOOGLE_API_KEY) come from the environment.
+# The Nostr secret key lives only in identity_file (mode 0600):
+#   {"secret_key_hex": "...", "secret_key_bech32": "nsec1...",
+#    "public_key_hex": "...", "public_key_bech32": "npub1..."}

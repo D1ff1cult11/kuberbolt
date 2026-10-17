@@ -84,3 +84,19 @@ async def publish_profile(client: Client, keys: Keys, name: str | None = None,
     event = metadata.into_event_builder().finalize(keys)
     await client.send_event(event)
     return event
+
+
+def init_agent(name: str, role: str, home: str | Path | None = None,
+               nsec: str | None = None) -> Path:
+    """Create $KUBERBOLT_HOME/<name>/ (mode 0700) with identity.json (0600)
+    and a config.yaml skeleton copied from the packaged schema template
+    (kuberbolt-config/agent.example.yaml) with agent.name/role filled in.
+
+    Idempotent: an existing identity.json is never overwritten. If `nsec`
+    is given, that key is imported instead of generating a new one; passing
+    an nsec that differs from an existing identity is an error.
+
+    Returns the agent directory. This is the single owner of Nostr key
+    generation for an agent; the Go financial pod only loads identity.json.
+    """
+    raise NotImplementedError  # Wave 1 / agent A

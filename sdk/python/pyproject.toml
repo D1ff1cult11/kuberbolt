@@ -8,6 +8,7 @@ license = { text = "MIT" }
 keywords = ["nostr", "lightning", "l402", "agents"]
 dependencies = [
     "nostr-sdk>=0.45",
+    "pyyaml>=6",
 ]
 
 [project.optional-dependencies]

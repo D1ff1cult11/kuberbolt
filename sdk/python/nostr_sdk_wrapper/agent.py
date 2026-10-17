@@ -6,25 +6,20 @@ nostr-sdk plumbing.
 
 Typical usage:
 
-    from kuberbolt_nostr.agent import KuberboltAgent
+    from nostr_sdk_wrapper import KuberboltAgent, load_config
 
-    agent = await KuberboltAgent.create(
-        identity_path="buyer_agent_identity.json",
-        relay_urls=["wss://relay.damus.io", "wss://nos.lol"],
-        profile_name="Kuberbolt Buyer Agent",
-        profile_about="Autonomous buyer agent for video analysis jobs.",
-    )
+    cfg = load_config("my-agent")          # $KUBERBOLT_HOME/my-agent/config.yaml
+    agent = await KuberboltAgent.from_config(cfg)
 
-    providers = await agent.find_providers("video-analysis")
+    providers = await agent.discover(category)
     if providers:
-        event = await agent.send_handshake(
-            providers[0].author_pubkey, {"action": "resolve_endpoint"}
-        )
+        reply = await agent.request_endpoint(providers[0]["nostr_pubkey"])
 
     await agent.disconnect()
 """
 
 from __future__ import annotations
+from .config import KuberboltConfig
 from .discovery import TaggedEvent
 from . import discovery, feedback, handshake, identity
 from nostr_sdk import (
@@ -100,6 +95,14 @@ class KuberboltAgent:
             await agent.publish_profile(name=profile_name, about=profile_about, picture=profile_picture)
 
         return agent
+
+    @classmethod
+    async def from_config(cls, cfg: "KuberboltConfig") -> "KuberboltAgent":
+        """Primary entry point: load the identity at cfg.identity_path
+        (it must already exist; see identity.init_agent) and connect to
+        cfg.relays, waiting cfg.relay_connect_wait_sec. Does not publish
+        anything; call register() for that."""
+        raise NotImplementedError  # Wave 1 / agent A
 
     @classmethod
     async def from_keys(cls, keys: Keys, relay_urls: list[str],
@@ -313,6 +316,17 @@ class KuberboltAgent:
         return await handshake.send_encrypted_request(
             self.client, self.keys, recipient_pubkey, payload
         )
+
+    async def request_endpoint(self, provider_pubkey: str, job_id: str | None = None,
+                               timeout_secs: int | None = None) -> dict | None:
+        """Buyer side of the endpoint handshake: send a NIP-44
+        {"action": "resolve_endpoint", "job_id": ...} to the provider and
+        poll for the matching reply. `job_id` defaults to a fresh uuid4.
+        `timeout_secs` defaults to the config's handshake_timeout_sec.
+
+        Returns the provider's reply {"job_id", "host", "port"}, or None if
+        no reply arrived in time. Replaces api/routers/requests.py."""
+        raise NotImplementedError  # Wave 1 / agent A
 
     async def fetch_handshake_replies(self, timeout_secs: int = 10) -> list[dict]:
         """Fetch and decrypt any handshake-kind events addressed to this
