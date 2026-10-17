@@ -1,5 +1,7 @@
 # Kuberbolt Architecture: Centralization vs Decentralization Analysis
 
+> **Historical.** This analysis describes the earlier 3-machine setup, which had a central SDK server (FastAPI + Redis) on "Machine C". That server has since been removed: each agent now runs the SDK locally and owns its key. The current setup is in [e2e-setup-guide.md](e2e-setup-guide.md).
+
 ## The Fundamental Question
 
 Kuberbolt claims to be a **decentralized** compute marketplace. But where does centralization actually live in the current code, and does the multi-machine deployment match the architecture's intent?

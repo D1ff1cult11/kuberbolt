@@ -6,8 +6,6 @@
 
 > An autonomous, decentralized financial and semantic routing layer for AI agents — powered by Nostr identity and Lightning Network micropayments.
 
-**[Live Demo Dashboard](https://kuberbolt-dashboard.onrender.com/)**
-
 ## What is Kuberbolt?
 
 Kuberbolt enables AI agents to **discover** each other on Nostr, **negotiate** securely via NIP-44 encrypted DMs, and **pay** for compute in sub-cent Lightning micropayments using the L402 protocol — all without human intervention.
@@ -19,86 +17,44 @@ Kuberbolt enables AI agents to **discover** each other on Nostr, **negotiate** s
 
 For the full specification, see the **[Software Requirements Specification (SRS)](SRS.md)**.
 
+Kuberbolt has no central server. Each agent runs the SDK locally, creates its own Nostr key with `kuberbolt init`, and talks to the relays itself. Each agent also runs its own LND node and Go financial pod.
+
 ## Repository Structure
 
 ```
 kuberbolt/
-├── sdk/                    # Python SDK — Nostr discovery, handshake, feedback
-├── api/                    # FastAPI backend — REST endpoints for the SDK
-├── frontend/               # React + TypeScript dashboard (Vite)
+├── sdk/python/             # Python SDK + `kuberbolt` CLI: identity, registration, discovery, handshake, feedback
 ├── agent-pod/
-│   ├── financial-pod/      # Go daemon — L402, HODL invoices, budgets, ledger
-│   ├── daemon/             # Go daemon — gRPC discovery service
-│   ├── proto/              # Protobuf definitions
-│   └── docker-compose.pod.yml
-├── lightning-infra/        # Docker Compose for regtest LND nodes
-├── scripts/                # Deployment and testing scripts
+│   ├── financial-pod/      # Go daemon: L402, HODL invoices, budgets, ledger
+│   ├── brain/app/          # Example agent brains: buyer_agent.py, seller_agent.py
+│   ├── daemon/             # Go daemon: gRPC discovery service (earlier prototype)
+│   └── proto/              # Protobuf definitions
+├── kuberbolt-config/       # agent.example.yaml: the config schema shared by Python and Go
+├── lightning-infra/        # Docker Compose for regtest bitcoind + LND
+├── scripts/                # start_seller.sh, start_buyer.sh, start_financial_pod.sh
 ├── docs/                   # Developer documentation
-├── shared/                 # Nostr event kind reference
-└── examples/               # Client and provider boilerplate
+└── shared/                 # Nostr event kind reference
 ```
 
 ## Prerequisites
 
 - **Python 3.12+**
 - **Go 1.21+**
-- **Node.js 18+** (for the frontend)
-- **Docker & Docker Compose**
+- **Docker & Docker Compose** (for LND)
 
-## Quick Start (Local Development)
+## Quick Start
 
-The fastest and most professional way to run the entire Kuberbolt stack locally is using our unified `Makefile`. This spins up the Lightning Network, the FastAPI backend, and the React frontend all at once.
-
-### Prerequisites
-- **Python 3.12+** (with a virtual environment activated: `python -m venv .venv` then `source .venv/bin/activate`)
-- **Go 1.21+**
-- **Node.js 18+**
-- **Docker & Docker Compose**
-
-### 1. The 1-Click Start (Recommended)
 ```bash
-git clone https://github.com/devlup-labs/kuberbolt.git
-cd kuberbolt
+git clone https://github.com/devlup-labs/kuberbolt.git && cd kuberbolt
+pip install -e sdk/python                       # installs the `kuberbolt` CLI
 
-# Install Python dependencies first
-pip install -e .
-
-# Install frontend dependencies
-cd frontend && npm install && cd ..
-
-# Start everything!
-make up
-```
-*This will open separate terminal windows for the API and Frontend, and start LND in Docker. Access the dashboard at `http://localhost:5173`.*
-
----
-
-### 2. Manual Step-by-Step Start
-If you prefer to start components individually for debugging:
-
-**Step A: Start Lightning Network (LND)**
-```bash
-cd lightning-infra
-docker compose -f docker-compose.lnd.yml up -d
+kuberbolt init --name my-agent --role client    # creates ~/.kuberbolt/my-agent/ with your key and a config skeleton
+# fill in ~/.kuberbolt/my-agent/config.yaml (every required value; there are no defaults)
+kuberbolt whoami --name my-agent
+kuberbolt discover --name my-agent --category summarization
 ```
 
-**Step B: Start FastAPI Backend**
-```bash
-uvicorn api.main:app --reload --port 8000
-```
-
-**Step C: Start React Dashboard**
-```bash
-cd frontend
-npm run dev
-# Uses port 5173 by default
-```
-
-### 3. Deploying Agent Pods
-Once your local network is running, you can spin up individual Financial Pods (which connect to the local LND network):
-```bash
-./scripts/deploy-pod.sh --name agent-alpha --detach
-```
+To run a full buyer and seller on two machines (LND, financial pods, brains), follow the **[End-to-End Setup Guide](docs/e2e-setup-guide.md)**. For a local regtest LND pair, run `make up`.
 
 ## Building Your Own Agent Brain
 
@@ -111,8 +67,9 @@ See **[Nostr Event Kinds](shared/nostr-kinds.md)** for a complete reference of a
 ## Running Tests
 
 ```bash
-# Python tests
-pytest tests/ -v
+# Python SDK tests
+pip install -e "sdk/python[dev]"
+pytest sdk/python/tests -v
 
 # Go tests (Financial Pod)
 cd agent-pod/financial-pod

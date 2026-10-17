@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Kuberbolt is a decentralized discovery + payment layer for AI agents. Agents **discover** each other via Nostr events, **negotiate** a private gRPC endpoint over NIP-44 encrypted DMs, and **pay** for compute with Lightning HODL invoices using the L402 protocol. It is a polyglot monorepo: Python (SDK, REST API, agent brains), Go (financial pod, discovery daemon), and React/TypeScript (dashboard). The full spec lives in `SRS.md`. The design rationale is in `docs/architecture-analysis.md`.
+Kuberbolt is a decentralized discovery + payment layer for AI agents. Agents **discover** each other via Nostr events, **negotiate** a private gRPC endpoint over NIP-44 encrypted DMs, and **pay** for compute with Lightning HODL invoices using the L402 protocol. It is a polyglot monorepo: Python (SDK + `kuberbolt` CLI, agent brains) and Go (financial pod, discovery daemon). There is no central server. The full spec lives in `SRS.md`. The 2-machine setup is `docs/e2e-setup-guide.md`. `docs/architecture-analysis.md` is historical and predates the removal of the central server.
 
 ## ⚠️ WARNINGS (read before writing any code)
 
@@ -13,7 +13,7 @@ Kuberbolt is a decentralized discovery + payment layer for AI agents. Agents **d
   - Values may appear only in docs, in `.env.example` and `kuberbolt-config/*.example.yaml` as placeholders, and in tests as fixtures.
   - The codebase still contains hardcoded values (listed in Phase 5 of the plan below). Don't copy them. Remove them whenever you touch that code.
 - **Private keys never leave the agent's machine.** No component may generate, store, or transmit another agent's nsec. This is why the central SDK server is being removed (see the plan below).
-- Never commit `.env`, identity files, `*.macaroon`, `*.cert`, or `~/.kuberbolt/*` contents. (`kuberbolt-config/seller.yaml` and `kuberbolt-config/buyer.yaml` (Nostr private keys), `kuberbolt-config/admin.macaroon`, and `kuberbolt-config/tls.cert` were committed in the past. Treat those keys as leaked and rotate them.)
+- Never commit `.env`, identity files, `*.macaroon`, `*.cert`, or `~/.kuberbolt/*` contents. (`kuberbolt-config/seller.yaml` and `kuberbolt-config/buyer.yaml` and `agent-pod/config/provider_win.yaml` (Nostr private keys), `kuberbolt-config/admin.macaroon`, and `kuberbolt-config/tls.cert` were committed in the past. Treat those keys as leaked and rotate them.)
 - Preserve the financial pod's payment ordering (see "Financial pod" below).
 
 ## Commands
@@ -32,8 +32,7 @@ go test ./... -short                             # unit/mock tests only; this is
 go test ./internal/gateway/... -run TestL402ProviderFlow -v   # single test
 make test-integration                            # live LND required (ALICE_*/BOB_* env vars)
 make proto                                       # regenerate internal/pb from ../proto via buf
-go run ./cmd/financialpod --config ../../kuberbolt-config/seller.yaml
-go run ./cmd/financialpod --init --name <agent>  # scaffold config + keypair under ~/.kuberbolt/<agent>
+go run ./cmd/financialpod --config ~/.kuberbolt/<agent>/config.yaml   # config + identity come from `kuberbolt init`
 ```
 `go.mod` declares `go 1.24.4`, but CI still pins Go 1.21.
 
@@ -48,9 +47,9 @@ The multi-machine startup scripts are `scripts/start_{seller,buyer,financial_pod
 ## Architecture
 
 ### Deployment model ("Model B", the current target)
-Each agent machine runs its own LND node, financial pod and local SDK. There is no central server. See `docs/e2e-setup-guide.md` and `docs/machine-*.md`.
-- **Seller (Machine B):** LND + Go financial pod (:6001) + seller brain `agent-pod/brain/app/seller_agent.py` (FastAPI compute on :8001 using Gemini, plus a NIP-44 listener that answers endpoint-resolve requests with its LAN IP/port).
-- **Buyer (Machine A):** LND + Go financial pod + LangChain buyer agent (`agent-pod/brain/app/buyer_agent.py`, `langchain_agent.py`). The buyer uses the local SDK for discovery, the endpoint handshake and feedback. It calls its *local* financial pod via `grpcurl`.
+Each agent machine runs its own LND node, financial pod and local SDK, all configured by `~/.kuberbolt/<agent>/config.yaml`. There is no central server. See `docs/e2e-setup-guide.md`.
+- **Seller:** LND + Go financial pod + seller brain `agent-pod/brain/app/seller_agent.py`. The brain self-registers on startup, serves the FastAPI `/compute` endpoint (Gemini) on `brain.listen_host:listen_port`, and runs a NIP-44 listener that answers endpoint-resolve requests with `network.public_host:grpc_port`.
+- **Buyer:** LND + Go financial pod + LangChain buyer agent `agent-pod/brain/app/buyer_agent.py`. One in-process `KuberboltAgent` handles discovery, the endpoint handshake and feedback. The buyer calls its *local* financial pod (`network.pod_addr`) via `grpcurl`, which relies on the pod's gRPC reflection.
 
 ### Python SDK: `sdk/python/nostr_sdk_wrapper/`
 `KuberboltAgent` (`agent.py`) is the facade. The other modules split by concern: `identity` (kind 0 profile, keys), `listing`/`discovery` (kind 31990 service listings, `#t` tag search), `handshake`/`dm` (kind 21000 NIP-44 endpoint negotiation), and `feedback` (kind 7000). The event-kind reference is `shared/nostr-kinds.md`. Import it as `nostr_sdk_wrapper` after installing `sdk/python`. Config is loaded by `config.py` (see the plan below).
@@ -60,19 +59,21 @@ One gRPC server (`FinancialPodService` in `agent-pod/proto/agent_service.proto`)
 - **`internal/gateway/requester.go`** (buyer side): unauthenticated `CallService`, then a 402 challenge (HODL invoice + macaroon), then a budget check (`internal/budget`). It then starts `SendPayment` in a goroutine and **immediately** retries with the macaroon only. It waits for settlement and returns the result.
 - **`internal/gateway/provider.go`** (seller side): issues the challenge (`internal/l402` macaroons, `internal/cache` invoice cache). On the authenticated retry it waits for the LND invoice to reach **HTLC ACCEPTED**, calls the brain (`internal/brain`, HTTP to `brain.url`), and then settles the HODL invoice on success or cancels it on failure.
 - Payment proof is the LND invoice state, never a client-supplied preimage. The ordering above exists to avoid a deadlock (the client can't know the preimage until compute finishes). Preserve it when changing this flow.
-- Other packages: `internal/ln` (LND client), `internal/ledger` (SQLite ledger, e.g. `seller_ledger.db`), and `internal/config` (YAML: agent, services, network, brain, lightning, budget; examples are in `kuberbolt-config/` and `examples/testnet/`).
+- Other packages: `internal/ln` (LND client), `internal/ledger` (SQLite ledger, e.g. `seller_ledger.db`), and `internal/config` (the YAML schema in `kuberbolt-config/agent.example.yaml`; it loads the Nostr key from `agent.identity_file` and `Validate()` refuses to start with missing settings).
 - Tests use mocks (`l402_mock_test.go`). `integration_test.go` is skipped under `-short`.
 
 ### Other pieces
 - `agent-pod/daemon` + `agent-pod/brain/app/main.py`: an earlier discovery loop. The brain polls Nostr and calls `NodeManager.HandoverPeers` on the Go daemon.
 - `gateway/`: Aperture (L402 reverse proxy) config. This is legacy; the financial pod implements L402 itself.
-- `client/`, `examples/`, `src/`, and `main.py` are boilerplate/early prototypes and are not used.
 
 ## Gotchas
-- Brain scripts depend on `PYTHONPATH` including both the repo root and `agent-pod/brain`. The `start_*.sh` scripts set this up.
-- `kuberbolt-config/*.yaml` contain machine-specific absolute paths (LND TLS cert/macaroon) and LAN IPs. Edit them per machine; don't assume they're portable.
+- Brain scripts depend on `PYTHONPATH` including the repo root, `agent-pod/brain` and `sdk/python`. The `start_*.sh` scripts set this up.
+- `config.yaml` holds machine-specific absolute paths (LND TLS cert/macaroon) and the LAN IP in `public_host`. It lives only under `~/.kuberbolt/<agent>/`, never in the repo.
+- The brain tests in `agent-pod/brain/tests/` aren't run by CI. Run them with `PYTHONPATH=agent-pod/brain:sdk/python pytest agent-pod/brain/tests`.
 
 ## Implementation plan: fully decentralized, local SDK
+
+**Status (branch `decentralize`):** Phases 1–4 and 6 are done, and the docs are rewritten. What's left: the Go pod payment-timing constants (Phase 5, last bullet group) and the manual 2-machine end-to-end run. The plan below is kept as a record.
 
 **Goal.** The SDK is a library and CLI that each agent runs **locally**. It is not a central server. Each agent uses it to create its own Nostr identity (nsec/npub), register itself (kind 0 profile and kind 31990 listing), browse other agents, do the endpoint handshake, and publish feedback, talking **directly to Nostr relays**. No machine sits between an agent and the network. After the migration there is no "Machine C" and every machine is a peer: its own SDK, its own financial pod, its own LND.
 
@@ -97,7 +98,7 @@ Each agent process runs: its brain and LangChain tools → `KuberboltAgent` (in 
 3. **`agent.py`:**
    - Add `KuberboltAgent.from_config(cfg)` as the main entry point.
    - Move the reply-polling loop from `api/routers/requests.py` into a new `KuberboltAgent.request_endpoint(provider_pubkey, job_id, timeout_secs)`.
-   - Drop the unused `identity_path` argument from `from_existing_key`.
+   - ~~Drop `identity_path` from `from_existing_key`~~ (done differently: `from_existing_key` and `create()` were deleted; `from_config` is the only constructor).
    - Remove the hardcoded relays from the module docstring.
    - Make the `connect_wait_secs` and `timeout_secs` defaults come from config.
 4. **`cli.py` (new)** with a `kuberbolt` console script, registered in `sdk/python/pyproject.toml`:
@@ -147,7 +148,7 @@ Each agent process runs: its brain and LangChain tools → `KuberboltAgent` (in 
 ### Phase 6: scripts and docs
 1. Each start script should run `kuberbolt init`/`register` if needed, then launch its process. Drop all prompts for keys and server URLs.
 2. Rewrite `.env.example` without the "SDK Server (Machine C)" section.
-3. Update `docs/e2e-setup-guide.md`, `docs/machine-*.md`, `sdk/python/README.md`, and the Architecture section of this file to describe the peer-to-peer model once Phases 1–4 land.
+3. ~~Update the docs~~ (done: `docs/e2e-setup-guide.md` is the single 2-machine guide; the `machine-*.md` guides, `local-dev-setup.md` and `e2e_test_plan.md` were removed).
 
 ### Wave 1: DONE (Go pod `671db2f`, SDK and CLI `ff7e194`)
 Follow-ups for Wave 2:
@@ -160,7 +161,7 @@ Follow-ups for Wave 2:
 - **Identity file:** `identity.json`, located via `agent.identity_file` in the config and relative to the config directory. Its format is the one `identity.save_identity` already writes. **The SDK (`identity.init_agent`) is the only code that generates keys.** The Go pod only loads the file. Note that `gateway/server.go` derives the macaroon root key from it.
 - **Python API:**
   - `nostr_sdk_wrapper.config` is implemented: `load_config`, `KuberboltConfig`, `ServiceConfig`, `ConfigError`.
-  - These are stubs that raise `NotImplementedError`: `identity.init_agent(name, role, home=None, nsec=None)`, `KuberboltAgent.from_config(cfg)`, and `KuberboltAgent.request_endpoint(provider_pubkey, job_id=None, timeout_secs=None) -> dict | None`.
+  - Also implemented (they started as stubs): `identity.init_agent(name, role, home=None, nsec=None)`, `KuberboltAgent.from_config(cfg)`, and `KuberboltAgent.request_endpoint(provider_pubkey, job_id=None, timeout_secs=None) -> dict | None`.
 - **Env:** only three variables are read, `KUBERBOLT_HOME`, `KUBERBOLT_AGENT`, and `KUBERBOLT_RELAYS`. Secrets such as `GOOGLE_API_KEY` also come from env.
 
 ### Subagent execution

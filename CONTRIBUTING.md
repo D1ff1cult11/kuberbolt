@@ -23,23 +23,22 @@ To set up your local development environment:
 3. **Infrastructure:**
    - Kuberbolt relies on LND and Docker. Ensure Docker and Docker Compose are installed and running.
 
-For a comprehensive guide on setting up the local environment, please refer to our [Local Dev Setup Guide](docs/local-dev-setup.md).
+For a comprehensive guide on setting up the local environment, please refer to our [End-to-End Setup Guide](docs/e2e-setup-guide.md).
 
 ## Running Tests
 
 Before submitting a pull request, ensure all tests pass.
 
-- **Python Tests (SDK & API):**
-  Ensure you are in the project root directory and run `pytest`:
+- **Python SDK tests** (from the repo root):
   ```bash
-  pytest
+  pip install -e "sdk/python[dev]"
+  pytest sdk/python/tests
   ```
 
-- **Go Tests (Gateway):**
-  Navigate to the gateway directory and run `go test`:
+- **Go tests (financial pod):**
   ```bash
-  cd gateway
-  go test ./...
+  cd agent-pod/financial-pod
+  go test ./... -short
   ```
 
 ## Pull Request Process
