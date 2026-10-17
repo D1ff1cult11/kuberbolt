@@ -55,7 +55,7 @@ def normalize_tag(tag: str) -> str:
 
 
 async def find_by_hashtag(client: Client, tag: str, kinds: list[int] | None = None,
-                          limit: int = 50, timeout_secs: int = 8) -> list[TaggedEvent]:
+                          limit: int = 50, *, timeout_secs: int) -> list[TaggedEvent]:
     """Find events tagged with a given hashtag (NIP-12 '#t' filter) -- the
     realistic way to discover 'service providers' or anyone self-tagging
     with a capability/topic on real public relays. If `kinds` is omitted,
@@ -82,7 +82,7 @@ async def find_by_hashtag(client: Client, tag: str, kinds: list[int] | None = No
 
 
 async def query_service_listings(client: Client, capability_tag: str,
-                                 limit: int = 50, timeout_secs: int = 8) -> list[Event]:
+                                 limit: int = 50, *, timeout_secs: int) -> list[Event]:
     """PULL discovery via NIP-89 handler listings (kind 31990). Left for
     reference -- expect very few/no real results, see module docstring.
     Also note: real kind:31990 events are filtered by a 'k' tag (the event
@@ -107,7 +107,7 @@ async def publish_job_request(client: Client, requester_keys: Keys,
     return event
 
 
-async def listen_for_job_responses(client: Client, job_event_id, timeout_secs: int = 10) -> list[Event]:
+async def listen_for_job_responses(client: Client, job_event_id, timeout_secs: int) -> list[Event]:
     """Fetch kind:7000 feedback events that reference our job request via an
     'e' tag."""
     f = Filter().kind(Kind(KIND_JOB_FEEDBACK)).event(job_event_id).limit(50)
@@ -115,7 +115,7 @@ async def listen_for_job_responses(client: Client, job_event_id, timeout_secs: i
     return list(events)
 
 
-async def fetch_profile(client: Client, pubkey: PublicKey, timeout_secs: int = 5) -> dict | None:
+async def fetch_profile(client: Client, pubkey: PublicKey, timeout_secs: int) -> dict | None:
     """Fetch kind:0 profile metadata for a given author public key."""
     try:
         f = Filter().kind(Kind(0)).author(pubkey).limit(1)
@@ -128,7 +128,7 @@ async def fetch_profile(client: Client, pubkey: PublicKey, timeout_secs: int = 5
         return None
 
 
-async def fetch_existing_profile(client: Client, pubkey_hex: str, timeout_secs: int = 5) -> Event | None:
+async def fetch_existing_profile(client: Client, pubkey_hex: str, timeout_secs: int) -> Event | None:
     """Fetch the latest kind:0 profile for an agent."""
     events = await client.fetch_events(
         ReqTarget.auto([Filter().kind(Kind(0)).author(
@@ -138,7 +138,7 @@ async def fetch_existing_profile(client: Client, pubkey_hex: str, timeout_secs: 
     return events[0] if events else None
 
 
-async def fetch_existing_listing(client: Client, pubkey_hex: str, timeout_secs: int = 5) -> Event | None:
+async def fetch_existing_listing(client: Client, pubkey_hex: str, timeout_secs: int) -> Event | None:
     """Fetch the latest service listing published by an agent."""
     events = await client.fetch_events(
         ReqTarget.auto([

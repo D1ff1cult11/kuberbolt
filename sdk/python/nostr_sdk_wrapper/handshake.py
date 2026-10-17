@@ -81,7 +81,7 @@ def decrypt_event(recipient_keys: Keys, event: Event) -> dict:
 
 
 async def fetch_handshake_events(client: Client, recipient_pubkey: PublicKey,
-                                 timeout_secs: int = 10) -> list[Event]:
+                                 timeout_secs: int) -> list[Event]:
     """Fetch events addressed to `recipient_pubkey` (via a 'p' tag) of our
     handshake kind. Call `decrypt_event(my_keys, ev)` on each result."""
     f = Filter().kind(Kind(KIND_HANDSHAKE)).custom_tag(
