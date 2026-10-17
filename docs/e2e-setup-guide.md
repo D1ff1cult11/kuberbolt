@@ -112,7 +112,7 @@ services:
 network:
   grpc_port: 6001
   public_host: "<B_IP>"             # what buyers dial
-  nostr_relays: ["wss://relay.damus.io", "wss://nos.lol"]
+  nostr_relays: ["wss://nos.lol", "wss://relay.primal.net"]   # must accept and keep kind 21000 events
   relay_connect_wait_sec: 2
   handshake_timeout_sec: 30
   discovery_timeout_sec: 10
@@ -187,6 +187,7 @@ The buyer brain then: discovers providers → resolves the endpoint over NIP-44 
 
 - **`... is required` / `ConfigError`**: the error names the missing setting. Fill it in `config.yaml`.
 - **`kuberbolt discover` returns nothing**: both agents must share at least one relay in `network.nostr_relays` (or `KUBERBOLT_RELAYS`), and the categories must match. Restart the seller to republish.
+- **Relay requirements**: the handshake uses kind 21000. Nostr treats that kind as ephemeral, but the SDK polls for it, so the relay must keep it for a while. On 2026-10-17, `nos.lol` and `relay.primal.net` kept it for at least 20 s. `relay.damus.io` rejected publishes ("internal error"), and `relay.nostr.band` timed out.
 - **`resolve` times out**: the seller brain isn't running, or it can't reach the relays. Raise `handshake_timeout_sec` if the relays are slow.
 - **`Failed to call service`**: check that `grpcurl` is installed, that the buyer pod is up at `network.pod_addr`, and that `<B_IP>:<grpc_port>` is reachable from A.
 - **LND connection failed**: check `lnd_host`/`lnd_grpc_port` and the absolute cert and macaroon paths. LND must be synced (`getinfo`).
