@@ -64,19 +64,6 @@ def load_identity(path: str | Path) -> Keys:
     return Keys(secret_key)
 
 
-def get_or_create_identity(path: str | Path) -> Keys:
-    """Load the identity at `path` if it exists, otherwise generate a new
-    one and save it there. This is the function most agents actually want
-    to call -- it makes identity persistent across runs without the caller
-    having to think about the load/generate branching themselves."""
-    path = Path(path)
-    if path.exists():
-        return load_identity(path)
-    keys = generate_identity()
-    save_identity(keys, path)
-    return keys
-
-
 async def publish_profile(client: Client, keys: Keys, name: str | None = None,
                           about: str | None = None, picture: str | None = None,
                           **extra_fields) -> Event:

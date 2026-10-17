@@ -58,7 +58,7 @@ class AgentNotRegisteredError(ValueError):
 class KuberboltAgent:
     """A Nostr-backed agent identity, already connected to relays, with
     discovery and handshake methods attached. Construct via `from_config()`
-    (or `create()`/`from_keys()`), not `__init__()` directly -- relay
+    (or `from_keys()`), not `__init__()` directly -- relay
     connection is async. `cfg` supplies default timeouts when present."""
 
     def __init__(self, keys: Keys, client: Client, cfg: KuberboltConfig | None = None):
@@ -77,36 +77,6 @@ class KuberboltAgent:
     # ------------------------------------------------------------------
     # Setup
     # ------------------------------------------------------------------
-
-    @classmethod
-    async def create(cls, identity_path: str | Path, relay_urls: list[str],
-                     profile_name: str | None = None, profile_about: str | None = None,
-                     profile_picture: str | None = None, *,
-                     connect_wait_secs: float) -> "KuberboltAgent":
-        """Load (or generate + persist) an identity, connect to the given
-        relays, and optionally publish a kind:0 profile in one call. This
-        is the intended entry point -- everything else on this class
-        assumes this has already run.
-
-        Set `profile_name` (or any of the profile_* args) to publish/update
-        a kind:0 profile as part of setup; leave them all None to skip it
-        (e.g. if you've already published a profile in a previous run and
-        don't need to republish it every time).
-        """
-        keys = identity.get_or_create_identity(identity_path)
-
-        client = Client()
-        for url in relay_urls:
-            await client.add_relay(RelayUrl.parse(url))
-        await client.connect()
-        await asyncio.sleep(connect_wait_secs)  # let relay handshakes settle
-
-        agent = cls(keys, client)
-
-        if profile_name is not None or profile_about is not None or profile_picture is not None:
-            await agent.publish_profile(name=profile_name, about=profile_about, picture=profile_picture)
-
-        return agent
 
     @classmethod
     async def from_config(cls, cfg: "KuberboltConfig") -> "KuberboltAgent":

@@ -1,1 +1,0 @@
-"""Kuberbolt API schemas package."""
