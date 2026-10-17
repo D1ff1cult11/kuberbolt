@@ -69,7 +69,7 @@ One gRPC server (`FinancialPodService` in `agent-pod/proto/agent_service.proto`)
 ## Gotchas
 - Brain scripts depend on `PYTHONPATH` including the repo root, `agent-pod/brain` and `sdk/python`. The `start_*.sh` scripts set this up.
 - `config.yaml` holds machine-specific absolute paths (LND TLS cert/macaroon) and the LAN IP in `public_host`. It lives only under `~/.kuberbolt/<agent>/`, never in the repo.
-- The brain tests in `agent-pod/brain/tests/` aren't run by CI. Run them with `PYTHONPATH=agent-pod/brain:sdk/python pytest agent-pod/brain/tests`.
+- Brain tests: `PYTHONPATH=agent-pod/brain pytest agent-pod/brain/tests` (after `pip install -r agent-pod/brain/requirements.txt`). CI runs them.
 
 ## Implementation plan: fully decentralized, local SDK
 

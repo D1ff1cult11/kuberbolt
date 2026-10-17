@@ -395,10 +395,10 @@ class KuberboltAgent:
     ) -> None:
         """Background listener/server loop for Provider Agents.
 
-        Polls for NIP-44 encrypted `resolve_endpoint` handshake requests, records
-        processed event IDs in SQLite (`seen_requests` table) before replying to
-        prevent duplicate replies/race conditions, and responds with the gRPC
-        `host` and `port`.
+        Polls for NIP-44 encrypted `resolve_endpoint` handshake requests and
+        responds with the gRPC `host` and `port`. Each event ID is recorded in
+        SQLite (`seen_requests` table) after a successful reply, so a failed
+        reply is retried on the next poll and an answered one is never repeated.
         """
         conn = sqlite3.connect(db_path)
         with conn:
