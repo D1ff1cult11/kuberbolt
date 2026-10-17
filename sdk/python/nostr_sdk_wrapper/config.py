@@ -58,6 +58,7 @@ class KuberboltConfig:
     relay_connect_wait_sec: float
     handshake_timeout_sec: int
     discovery_timeout_sec: int
+    endpoint_poll_sec: int | None
     grpc_port: int
     public_host: str | None
     pod_addr: str | None
@@ -145,6 +146,7 @@ def load_config(agent_name: str | None = None, home: str | Path | None = None) -
         relay_connect_wait_sec=float(_get(data, "network.relay_connect_wait_sec", src)),
         handshake_timeout_sec=int(_get(data, "network.handshake_timeout_sec", src)),
         discovery_timeout_sec=int(_get(data, "network.discovery_timeout_sec", src)),
+        endpoint_poll_sec=_get(data, "network.endpoint_poll_sec", src, required=False),
         grpc_port=int(_get(data, "network.grpc_port", src)),
         public_host=_get(data, "network.public_host", src, required=False),
         pod_addr=_get(data, "network.pod_addr", src, required=False),

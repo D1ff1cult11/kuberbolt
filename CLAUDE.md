@@ -151,7 +151,7 @@ Each agent process runs: its brain and LangChain tools → `KuberboltAgent` (in 
 
 ### Wave 1: DONE (Go pod `671db2f`, SDK and CLI `ff7e194`)
 Follow-ups for Wave 2:
-- **Schema gap:** there is no config field for the seller's endpoint poll interval. Add `network.endpoint_poll_sec` (agent F, plus the Python loader and the Go structs).
+- `network.endpoint_poll_sec` has been added to the schema, the Python loader, the Go structs and `kuberbolt serve-endpoint`. It is required for merchants.
 - **`KuberboltAgent.create()` still generates keys.** It is used only by `api/`, so agent G deletes it along with `api/`.
 - **`kuberbolt init --nsec` puts the key in shell history.** Consider reading it from stdin.
 

@@ -33,6 +33,7 @@ network:
   relay_connect_wait_sec: 0    # REQUIRED, > 0. Seconds to let relay connections settle.
   handshake_timeout_sec: 0     # REQUIRED, > 0. How long request_endpoint waits for a reply.
   discovery_timeout_sec: 0     # REQUIRED, > 0. Relay query timeout for discovery.
+  endpoint_poll_sec: 0         # REQUIRED for merchants. Relay poll timeout of the endpoint-resolve listener.
 
 brain:
   url: ""                      # REQUIRED for merchants. Where the pod calls the brain (http://host:port).

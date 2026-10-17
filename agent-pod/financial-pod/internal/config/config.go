@@ -65,6 +65,7 @@ type NetworkConfig struct {
 	RelayConnectWaitSec int      `yaml:"relay_connect_wait_sec"`
 	HandshakeTimeoutSec int      `yaml:"handshake_timeout_sec"`
 	DiscoveryTimeoutSec int      `yaml:"discovery_timeout_sec"`
+	EndpointPollSec     int      `yaml:"endpoint_poll_sec"`
 }
 
 // BrainConfig describes the private compute service co-located with this

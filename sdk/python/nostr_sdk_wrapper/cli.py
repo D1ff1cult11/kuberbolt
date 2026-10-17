@@ -67,7 +67,7 @@ def _serve_endpoint(args) -> None:
     port = cfg.require(cfg.grpc_port, "network.grpc_port")
 
     async def serve(agent):
-        await agent.serve_endpoint_requests(host, port, poll_interval=args.poll_interval, db_path=cfg.ledger_path)
+        await agent.serve_endpoint_requests(host, port, poll_interval=int(cfg.require(cfg.endpoint_poll_sec, "network.endpoint_poll_sec")), db_path=cfg.ledger_path)
 
     asyncio.run(_with_agent(args, serve))
 
@@ -107,7 +107,6 @@ def main(argv: list[str] | None = None) -> None:
     p.set_defaults(fn=_resolve)
 
     p = sub.add_parser("serve-endpoint", parents=[common], help="merchant: answer endpoint requests")
-    p.add_argument("--poll-interval", type=int, required=True, help="relay poll timeout in seconds")
     p.set_defaults(fn=_serve_endpoint)
 
     args = parser.parse_args(argv)
