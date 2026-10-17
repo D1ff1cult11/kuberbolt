@@ -70,8 +70,7 @@ func NewServer(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*Se
 	}
 
 	// 2. Open SQLite ledger.
-	dbPath := fmt.Sprintf("%s/ledger.db", config.DefaultDir(cfg.Agent.Name))
-	db, err := ledger.Open(dbPath)
+	db, err := ledger.Open(cfg.ResolvePath(cfg.Agent.LedgerPath))
 	if err != nil {
 		lndClient.Close()
 		return nil, fmt.Errorf("gateway: open ledger: %w", err)
@@ -87,21 +86,21 @@ func NewServer(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*Se
 	invoices := cache.New()
 
 	// Root key for macaroon signing — derived from agent's Nostr private key.
-	macRootKey := deriveRootKey(cfg.Agent.NostrPrivKey)
+	macRootKey := deriveRootKey(cfg.NostrSecretKeyHex)
 	macMgr := l402.NewManager(macRootKey)
 
-	servicePriceMSat := int64(0)
-	if len(cfg.Services) > 0 {
-		servicePriceMSat = cfg.Services[0].PriceMSat
+	// Only merchants serve inbound paid calls; config.Validate guarantees
+	// they have a brain URL and a priced service.
+	var provider *ProviderSide
+	if cfg.Agent.Role == config.RoleMerchant {
+		brainClient, err := brain.NewHTTPClient(cfg.Brain.URL)
+		if err != nil {
+			db.Close()
+			lndClient.Close()
+			return nil, fmt.Errorf("gateway: configure Brain client: %w", err)
+		}
+		provider = newProviderSide(lndClient, macMgr, invoices, db, cfg.Services[0].PriceMSat, logger, brainClient)
 	}
-
-	brainClient, err := brain.NewHTTPClient(cfg.Brain.URL)
-	if err != nil {
-		db.Close()
-		lndClient.Close()
-		return nil, fmt.Errorf("gateway: configure Brain client: %w", err)
-	}
-	provider := newProviderSide(lndClient, macMgr, invoices, db, servicePriceMSat, logger, brainClient)
 	requester := newRequesterSide(lndClient, bm, db, logger)
 
 	return &Server{
@@ -214,6 +213,9 @@ func (s *Server) CallService(ctx context.Context, req *pb.CallServiceRequest) (*
 		forwarded := proto.Clone(req).(*pb.CallServiceRequest)
 		forwarded.ProviderEndpoint = ""
 		return s.requester.CallProvider(ctx, req.ProviderEndpoint, forwarded)
+	}
+	if s.provider == nil {
+		return nil, status.Error(codes.FailedPrecondition, "this pod is not a merchant (agent.role); it does not serve inbound calls")
 	}
 	response, err := s.provider.HandleCallService(ctx, req)
 	if paymentRequired, ok := err.(*ErrPaymentRequired); ok {

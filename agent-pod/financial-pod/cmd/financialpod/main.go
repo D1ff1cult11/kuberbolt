@@ -18,7 +18,7 @@ import (
 func main() {
 	cfgPath  := flag.String("config", "", "Path to config.yaml (overrides default location)")
 	agentName := flag.String("name", "", "Agent name (used to locate default config directory)")
-	initMode  := flag.Bool("init", false, "Initialize a new agent and exit")
+	initMode  := flag.Bool("init", false, "Removed: use `kuberbolt init --name <agent>`")
 	flag.Parse()
 
 	zapCfg := zap.NewDevelopmentConfig()
@@ -31,21 +31,10 @@ func main() {
 	}
 	defer logger.Sync()
 
-	// Init mode: create config + keypair, then exit.
+	// Key generation is owned by the Python SDK; the pod only loads identity.json.
 	if *initMode {
-		if *agentName == "" {
-			fmt.Fprintln(os.Stderr, "error: --name is required with --init")
-			os.Exit(1)
-		}
-		cfg, err := config.Initialize(*agentName)
-		if err != nil {
-			logger.Fatal("init failed", zap.Error(err))
-		}
-		logger.Info("agent initialized",
-			zap.String("name", cfg.Agent.Name),
-			zap.String("config_dir", config.DefaultDir(cfg.Agent.Name)),
-		)
-		return
+		fmt.Fprintln(os.Stderr, "error: --init was removed; run `kuberbolt init --name <agent>` (Python SDK) to create the config and identity")
+		os.Exit(1)
 	}
 
 	// Load config.

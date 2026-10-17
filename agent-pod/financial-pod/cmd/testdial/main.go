@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os/exec"
 	"time"
 
@@ -15,10 +16,13 @@ import (
 )
 
 func main() {
-	targetFlag := flag.String("target", "127.0.0.1:6001", "gRPC server target host:port")
+	targetFlag := flag.String("target", "", "gRPC server target host:port (required)")
 	promptFlag := flag.String("prompt", "The Lightning Network is a second-layer payment protocol that enables instant, low-cost off-chain micropayments.", "Text prompt to summarize")
 	jsonFlag := flag.Bool("json", false, "Output machine-readable JSON")
 	flag.Parse()
+	if *targetFlag == "" {
+		log.Fatal("--target <host:port> is required")
+	}
 
 	target := *targetFlag
 	prompt := *promptFlag
