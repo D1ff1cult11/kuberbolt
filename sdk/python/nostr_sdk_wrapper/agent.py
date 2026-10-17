@@ -19,7 +19,7 @@ Typical usage:
 """
 
 from __future__ import annotations
-from .config import KuberboltConfig
+from .config import ConfigError, KuberboltConfig
 from .discovery import TaggedEvent
 from . import discovery, feedback, handshake, identity
 from nostr_sdk import (
@@ -39,6 +39,8 @@ import asyncio
 import json
 import logging
 import sqlite3
+import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -55,12 +57,22 @@ class AgentNotRegisteredError(ValueError):
 
 class KuberboltAgent:
     """A Nostr-backed agent identity, already connected to relays, with
-    discovery and handshake methods attached. Construct via `create()`,
-    not `__init__()` directly -- relay connection is async."""
+    discovery and handshake methods attached. Construct via `from_config()`
+    (or `create()`/`from_keys()`), not `__init__()` directly -- relay
+    connection is async. `cfg` supplies default timeouts when present."""
 
-    def __init__(self, keys: Keys, client: Client):
+    def __init__(self, keys: Keys, client: Client, cfg: KuberboltConfig | None = None):
         self.keys = keys
         self.client = client
+        self.cfg = cfg
+
+    def _timeout(self, value: float | None, setting: str) -> float:
+        """`value` if given, else network.<setting> from the agent's config."""
+        if value is not None:
+            return value
+        if self.cfg is None:
+            raise ValueError(f"timeout_secs is required when the agent has no config (network.{setting})")
+        return getattr(self.cfg, setting)
 
     # ------------------------------------------------------------------
     # Setup
@@ -69,8 +81,8 @@ class KuberboltAgent:
     @classmethod
     async def create(cls, identity_path: str | Path, relay_urls: list[str],
                      profile_name: str | None = None, profile_about: str | None = None,
-                     profile_picture: str | None = None,
-                     connect_wait_secs: float = 3.0) -> "KuberboltAgent":
+                     profile_picture: str | None = None, *,
+                     connect_wait_secs: float) -> "KuberboltAgent":
         """Load (or generate + persist) an identity, connect to the given
         relays, and optionally publish a kind:0 profile in one call. This
         is the intended entry point -- everything else on this class
@@ -102,11 +114,16 @@ class KuberboltAgent:
         (it must already exist; see identity.init_agent) and connect to
         cfg.relays, waiting cfg.relay_connect_wait_sec. Does not publish
         anything; call register() for that."""
-        raise NotImplementedError  # Wave 1 / agent A
+        if not cfg.identity_path.exists():
+            raise ConfigError(f"{cfg.identity_path} not found: run `kuberbolt init --name {cfg.name}`")
+        agent = await cls.from_keys(identity.load_identity(cfg.identity_path), cfg.relays,
+                                    cfg.relay_connect_wait_sec)
+        agent.cfg = cfg
+        return agent
 
     @classmethod
     async def from_keys(cls, keys: Keys, relay_urls: list[str],
-                        connect_wait_secs: float = 3.0) -> "KuberboltAgent":
+                        connect_wait_secs: float) -> "KuberboltAgent":
         """Construct a KuberboltAgent from an already-loaded Keys object,
         connecting to the given relays without any disk I/O."""
         client = Client()
@@ -117,10 +134,9 @@ class KuberboltAgent:
         return cls(keys, client)
 
     @classmethod
-    async def from_existing_key(cls, privkey_hex: str, identity_path: str | Path,
-                                relay_urls: list[str], connect_wait_secs: float = 3.0) -> "KuberboltAgent":
+    async def from_existing_key(cls, privkey_hex: str, relay_urls: list[str],
+                                connect_wait_secs: float) -> "KuberboltAgent":
         """Construct an agent from a previously issued private key."""
-        del identity_path
         keys = Keys(SecretKey.parse(privkey_hex))
         return await cls.from_keys(keys, relay_urls, connect_wait_secs)
 
@@ -157,10 +173,11 @@ class KuberboltAgent:
     async def register(self, role: Literal["client", "merchant"], display_name: str,
                        about: str | None = None,
                        lightning_address: str | None = None,
-                       service: dict | None = None) -> dict:
+                       service: dict | None = None,
+                       picture_url: str | None = None) -> dict:
         """Register profile and optionally service listing (if merchant role)."""
         profile_event = await self.publish_profile(
-            name=display_name, about=about, lud16=lightning_address
+            name=display_name, about=about, picture=picture_url, lud16=lightning_address
         )
         listing_event = None
         if role == "merchant":
@@ -190,12 +207,36 @@ class KuberboltAgent:
             "profile_event_id": profile_event.id().to_hex(),
             "listing_event_id": listing_event.id().to_hex() if listing_event is not None else None,
         }
+
+    async def register_from_config(self) -> dict:
+        """register() using the agent block and (for merchants) the single
+        service from this agent's config. One listing per agent: the listing
+        is replaceable by pubkey, so a second service would overwrite it."""
+        cfg = self.cfg
+        if cfg is None:
+            raise ValueError("register_from_config needs an agent built with from_config()")
+        service = None
+        if cfg.role == "merchant":
+            if len(cfg.services) != 1:
+                raise ConfigError(f"{cfg.agent_dir / 'config.yaml'}: exactly one entry in services is supported")
+            s = cfg.services[0]
+            service = {
+                "service_name": s.name,
+                "service_description": s.description,
+                "price_sats": s.price_sats,
+                "price_unit": s.price_unit,
+                "category": s.category,
+            }
+        return await self.register(cfg.role, cfg.display_name, about=cfg.about,
+                                   lightning_address=cfg.lightning_address, service=service,
+                                   picture_url=cfg.picture_url)
     # ------------------------------------------------------------------
     # Update profile
     # ------------------------------------------------------------------
 
-    async def update_agent(self, updates: list[dict]) -> dict:
-        existing = await discovery.fetch_existing_profile(self.client, self.pubkey_hex)
+    async def update_agent(self, updates: list[dict], timeout_secs: int | None = None) -> dict:
+        timeout_secs = self._timeout(timeout_secs, "discovery_timeout_sec")
+        existing = await discovery.fetch_existing_profile(self.client, self.pubkey_hex, timeout_secs)
         if existing is None:
             raise AgentNotRegisteredError(self.pubkey_hex)
 
@@ -220,7 +261,7 @@ class KuberboltAgent:
 
         listing_event_id = None
         if changed.keys() & listing_fields:
-            existing_listing = await discovery.fetch_existing_listing(self.client, self.pubkey_hex)
+            existing_listing = await discovery.fetch_existing_listing(self.client, self.pubkey_hex, timeout_secs)
             if existing_listing is None:
                 raise ValueError(
                     "No existing service listing to update - register as merchant first")
@@ -249,17 +290,19 @@ class KuberboltAgent:
     # ------------------------------------------------------------------
 
     async def find_providers(self, tag: str, kinds: list[int] | None = None,
-                             limit: int = 50, timeout_secs: int = 8) -> list[TaggedEvent]:
+                             limit: int = 50, timeout_secs: int | None = None) -> list[TaggedEvent]:
         """Find service providers self-tagged with `tag` (normalized
         automatically -- 'Video_Analysis' and 'video-analysis' match the
         same providers)."""
         return await discovery.find_by_hashtag(
-            self.client, tag, kinds=kinds, limit=limit, timeout_secs=timeout_secs
+            self.client, tag, kinds=kinds, limit=limit,
+            timeout_secs=self._timeout(timeout_secs, "discovery_timeout_sec")
         )
 
     async def discover(self, category: str, price_max: int | None = None,
-                       limit: int = 50, timeout_secs: int = 8) -> list[dict]:
+                       limit: int = 50, timeout_secs: int | None = None) -> list[dict]:
         """Discover service listings under `category` with optional price filtering."""
+        timeout_secs = self._timeout(timeout_secs, "discovery_timeout_sec")
         category_tag = f"kuberbolt/{category}" if not category.startswith(
             "kuberbolt/") else category
         results = await discovery.find_by_hashtag(
@@ -283,7 +326,7 @@ class KuberboltAgent:
             # fetch_profile per-result is N+1 relay calls, future optimization = batched author filter, don't build now
             try:
                 author_pk = PublicKey.parse(result.author_pubkey)
-                profile = await discovery.fetch_profile(self.client, author_pk)
+                profile = await discovery.fetch_profile(self.client, author_pk, timeout_secs)
             except Exception:
                 profile = None
 
@@ -326,9 +369,20 @@ class KuberboltAgent:
 
         Returns the provider's reply {"job_id", "host", "port"}, or None if
         no reply arrived in time. Replaces api/routers/requests.py."""
-        raise NotImplementedError  # Wave 1 / agent A
+        timeout_secs = self._timeout(timeout_secs, "handshake_timeout_sec")
+        job_id = job_id or str(uuid.uuid4())
+        await self.send_handshake(provider_pubkey, {"action": "resolve_endpoint", "job_id": job_id})
+        deadline = time.monotonic() + timeout_secs
+        while time.monotonic() < deadline:
+            remaining = max(1, int(deadline - time.monotonic()))
+            replies = await self.fetch_handshake_replies(timeout_secs=min(3, remaining))
+            for reply in replies:
+                if reply.get("job_id") == job_id and "host" in reply:
+                    return reply
+            await asyncio.sleep(0.25)
+        return None
 
-    async def fetch_handshake_replies(self, timeout_secs: int = 10) -> list[dict]:
+    async def fetch_handshake_replies(self, timeout_secs: int) -> list[dict]:
         """Fetch and decrypt any handshake-kind events addressed to this
         agent. Returns only the ones that decrypt successfully (skips
         anything that fails signature verification or decryption, rather
@@ -372,8 +426,8 @@ class KuberboltAgent:
         self,
         host: str,
         port: int,
-        poll_interval: int = 5,
-        db_path: str = "ledger.db",
+        poll_interval: int,
+        db_path: str | Path,
         allowed_pubkeys: list[str] | None = None,
         stop_event: asyncio.Event | None = None,
     ) -> None:

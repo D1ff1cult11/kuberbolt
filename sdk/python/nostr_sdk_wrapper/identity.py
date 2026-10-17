@@ -14,9 +14,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
+from importlib import resources
 from pathlib import Path
 
 from nostr_sdk import Client, Event, Keys, Metadata, MetadataRecord, SecretKey
+
+from .config import ROLES, ConfigError, agent_dir
 
 
 def generate_identity() -> Keys:
@@ -44,7 +48,8 @@ def save_identity(keys: Keys, path: str | Path) -> None:
         "public_key_hex": keys.public_key().to_hex(),
         "public_key_bech32": keys.public_key().to_bech32(),
     }
-    with open(path, "w") as f:
+    # Create with 0600 so the key is never readable by others, even briefly.
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
         json.dump(data, f, indent=2)
 
     os.chmod(path, 0o600)
@@ -99,4 +104,24 @@ def init_agent(name: str, role: str, home: str | Path | None = None,
     Returns the agent directory. This is the single owner of Nostr key
     generation for an agent; the Go financial pod only loads identity.json.
     """
-    raise NotImplementedError  # Wave 1 / agent A
+    if role not in ROLES:
+        raise ConfigError(f"role must be one of {ROLES}, got {role!r}")
+    directory = agent_dir(name, home)
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(directory, 0o700)
+
+    identity_path = directory / "identity.json"
+    if identity_path.exists():
+        existing = load_identity(identity_path).secret_key().to_hex()
+        if nsec is not None and SecretKey.parse(nsec).to_hex() != existing:
+            raise ConfigError(f"{identity_path} already holds a different key; refusing to overwrite it")
+    else:
+        save_identity(Keys(SecretKey.parse(nsec)) if nsec else generate_identity(), identity_path)
+
+    config_path = directory / "config.yaml"
+    if not config_path.exists():
+        text = resources.files(__package__).joinpath("templates/agent.example.yaml").read_text()
+        for key, value in (("name", directory.name), ("role", role)):
+            text = re.sub(rf'^  {key}: ""', lambda _: f"  {key}: {json.dumps(value)}", text, count=1, flags=re.M)
+        config_path.write_text(text)
+    return directory
