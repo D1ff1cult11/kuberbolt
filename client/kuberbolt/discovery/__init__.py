@@ -1,1 +1,0 @@
-"""Kuberbolt discovery module."""

@@ -1,20 +1,14 @@
-name: CI — Python (SDK & API)
+name: CI — Python (SDK)
 
 on:
   push:
     branches: [main, dev]
     paths:
-      - 'api/**'
       - 'sdk/**'
-      - 'tests/**'
-      - 'pyproject.toml'
   pull_request:
     branches: [main, dev]
     paths:
-      - 'api/**'
       - 'sdk/**'
-      - 'tests/**'
-      - 'pyproject.toml'
 
 jobs:
   test:
@@ -34,12 +28,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e "sdk/python[dev]"
 
       - name: Run linter
         run: |
           pip install flake8
-          flake8 api/ sdk/ --max-line-length=120 --ignore=E501,W503 --exclude=*_pb2*.py
+          flake8 sdk/ --max-line-length=120 --ignore=E501,W503 --exclude='*_pb2*.py,.venv'
 
       - name: Run tests
-        run: pytest tests/ -v --tb=short
+        run: pytest sdk/python/tests -v --tb=short

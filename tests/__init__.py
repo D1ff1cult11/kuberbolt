@@ -1,1 +1,0 @@
-"""Kuberbolt API test suite."""
