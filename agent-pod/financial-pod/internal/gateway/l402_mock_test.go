@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,6 +19,7 @@ type MockLNClient struct {
 	CancelInvoiceFunc          func(ctx context.Context, paymentHash []byte) error
 	SettleInvoiceFunc          func(ctx context.Context, preimage []byte) error
 	SendPaymentFunc            func(ctx context.Context, paymentRequest string, timeoutSec int32) ([]byte, error)
+	DecodePayReqFunc           func(ctx context.Context, paymentRequest string) (int64, string, error)
 	GetInfoFunc                func(ctx context.Context) (*lnrpc.GetInfoResponse, error)
 }
 
@@ -63,6 +65,13 @@ func (m *MockLNClient) SendPayment(ctx context.Context, paymentRequest string, t
 		return m.SendPaymentFunc(ctx, paymentRequest, timeoutSec)
 	}
 	return []byte("mock_preimage"), nil
+}
+
+func (m *MockLNClient) DecodePayReq(ctx context.Context, paymentRequest string) (int64, string, error) {
+	if m.DecodePayReqFunc != nil {
+		return m.DecodePayReqFunc(ctx, paymentRequest)
+	}
+	return 0, "", errors.New("DecodePayReq not mocked")
 }
 
 func (m *MockLNClient) Close() error { return nil }

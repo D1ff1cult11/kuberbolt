@@ -5,7 +5,7 @@ Usage: python -m app.buyer_agent "<prompt>"
 
 Runs on the buyer's machine, configured entirely by $KUBERBOLT_HOME/<agent>/config.yaml
 (agent name from KUBERBOLT_AGENT) plus GOOGLE_API_KEY in the environment. A LangChain
-ReAct agent (brain.llm_model) gets four tools:
+tool-calling agent (brain.llm_model) gets four tools:
 - discover_providers / request_endpoint / publish_feedback: an in-process KuberboltAgent
   talking directly to Nostr relays.
 - call_service: the local Go Financial Pod (network.pod_addr) via grpcurl, which handles
@@ -26,25 +26,12 @@ from nostr_sdk_wrapper.config import ConfigError, load_config
 
 USAGE = 'Usage: python -m app.buyer_agent "<prompt>"'
 
-REACT_TEMPLATE = '''Answer the following questions as best you can. You have access to the following tools:
-
-{tools}
-
-Use the following format:
-
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-
-Begin!
-
-Question: {input}
-Thought:{agent_scratchpad}'''
+SYSTEM_PROMPT = (
+    "You buy AI services on the Kuberbolt network. To fulfil the user's request: "
+    "discover_providers for a fitting category, request_endpoint from the chosen provider, "
+    "call_service with that endpoint and the listing's service_name (this pays the provider), "
+    "then publish_feedback for the job_id from request_endpoint. Report the service result."
+)
 
 
 def google_api_key() -> str:
@@ -86,7 +73,8 @@ def make_tools(agent: KuberboltAgent, pod_addr: str, run: Callable) -> list[Call
                 pod_addr,
                 "kuberbolt.v1.FinancialPodService/CallService",
             ], capture_output=True, text=True, check=True)
-            return result.stdout
+            # grpcurl prints the CallServiceResponse as JSON with bytes fields base64-encoded.
+            return base64.b64decode(json.loads(result.stdout)["outputData"]).decode()
         except subprocess.CalledProcessError as e:
             return f"Failed to call service: {e.stderr}"
         except Exception as e:
@@ -101,19 +89,15 @@ def make_tools(agent: KuberboltAgent, pod_addr: str, run: Callable) -> list[Call
 
 
 def run_agent(prompt: str, tool_fns: list[Callable], model: str, api_key: str) -> None:
-    from langchain.agents import AgentExecutor, create_react_agent
-    from langchain.tools import tool
-    from langchain_core.prompts import PromptTemplate
+    from langchain.agents import create_agent
     from langchain_google_genai import ChatGoogleGenerativeAI
 
     llm = ChatGoogleGenerativeAI(model=model, google_api_key=api_key)
-    tools = [tool(fn) for fn in tool_fns]
-    agent = create_react_agent(llm, tools, PromptTemplate.from_template(REACT_TEMPLATE))
-    executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent = create_agent(model=llm, tools=tool_fns, system_prompt=SYSTEM_PROMPT)
 
     print(f"Running agent with prompt: {prompt}")
-    result = executor.invoke({"input": prompt})
-    print(result["output"])
+    result = agent.invoke({"messages": [{"role": "user", "content": prompt}]})
+    print(result["messages"][-1].text)
 
 
 def main(argv: list[str]) -> int:

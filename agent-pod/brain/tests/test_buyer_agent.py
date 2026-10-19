@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import subprocess
 from pathlib import Path
@@ -78,9 +79,10 @@ def test_publish_feedback_calls_sdk(tools):
 
 def test_call_service_uses_pod_addr_and_service_kind(tools):
     _, fns = tools
-    done = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok")
+    stdout = json.dumps({"outputData": base64.b64encode(b'{"summary": "short"}').decode(), "status": "success"})
+    done = subprocess.CompletedProcess(args=[], returncode=0, stdout=stdout)
     with patch.object(buyer_agent.subprocess, "run", return_value=done) as run:
-        assert fns["call_service"]("10.0.0.5", 7001, "summarize", "hello") == "ok"
+        assert fns["call_service"]("10.0.0.5", 7001, "summarize", "hello") == '{"summary": "short"}'
     cmd = run.call_args.args[0]
     body = json.loads(cmd[cmd.index("-d") + 1])
     assert body["provider_endpoint"] == "10.0.0.5:7001"

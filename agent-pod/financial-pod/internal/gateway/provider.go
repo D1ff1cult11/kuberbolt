@@ -229,8 +229,12 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 	)
 
 	// 5. Subscribe to invoice state — wait for HTLC ACCEPTED (funds locked).
-	updates, err := p.lnd.SubscribeSingleInvoice(ctx, rhashBytes)
+	//    Bounded by the challenge TTL so a failed payment can't hang both pods.
+	waitCtx, cancelWait := context.WithDeadline(ctx, cached.ExpiresAt)
+	defer cancelWait()
+	updates, err := p.lnd.SubscribeSingleInvoice(waitCtx, rhashBytes)
 	if err != nil {
+		p.cancelHold(ctx, cached)
 		return nil, fmt.Errorf("provider: subscribe invoice: %w", err)
 	}
 
@@ -248,11 +252,13 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 			break
 		}
 		if update.State == ln.InvoiceCancelled {
+			p.cancelHold(ctx, cached)
 			return nil, fmt.Errorf("provider: invoice cancelled by network")
 		}
 	}
 
 	if !htlcAccepted {
+		p.cancelHold(ctx, cached)
 		return nil, fmt.Errorf("provider: HTLC was not locked (payment not received)")
 	}
 
@@ -279,19 +285,18 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 			zap.Error(computeErr),
 			zap.String("rhash", shortStr(rhashHex, 12)),
 		)
-		if err := p.lnd.CancelInvoice(ctx, rhashBytes); err != nil {
-			p.logger.Error("failed to cancel invoice after compute failure",
-				zap.Error(err))
-		}
-		if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "cancelled"); err != nil {
-			p.logger.Warn("failed to update ledger status to cancelled", zap.Error(err))
-		}
-		p.invoices.DeleteByRHash(cached.RHashHex)
+		p.cancelHold(ctx, cached)
 		return nil, fmt.Errorf("provider: compute failed, invoice cancelled: %w", computeErr)
 	}
 
+	// The buyer disconnected and can't receive the result: refund instead of settling.
+	if ctx.Err() != nil {
+		p.cancelHold(ctx, cached)
+		return nil, fmt.Errorf("provider: caller gone before result delivered, invoice cancelled: %w", ctx.Err())
+	}
+
 	// 8. Compute succeeded → settle the HODL invoice (reveal preimage).
-	if err := p.lnd.SettleInvoice(ctx, cached.Preimage); err != nil {
+	if err := p.lnd.SettleInvoice(context.WithoutCancel(ctx), cached.Preimage); err != nil {
 		p.logger.Error("failed to settle invoice after successful compute",
 			zap.Error(err),
 			zap.String("rhash", shortStr(rhashHex, 12)),
@@ -325,6 +330,18 @@ func (p *ProviderSide) handleAuthenticatedRequest(
 		OutputData: result,
 		Status:     "success",
 	}, nil
+}
+
+// cancelHold releases the buyer's locked HTLC and forgets the challenge. It
+// ignores ctx cancellation: the funds must be released even if the caller is gone.
+func (p *ProviderSide) cancelHold(ctx context.Context, cached *cache.Entry) {
+	if err := p.lnd.CancelInvoice(context.WithoutCancel(ctx), cached.RHash); err != nil {
+		p.logger.Error("failed to cancel HODL invoice", zap.Error(err), zap.String("rhash", shortStr(cached.RHashHex, 12)))
+	}
+	if err := p.db.UpdateStatusByPaymentHash(cached.RHashHex, "cancelled"); err != nil {
+		p.logger.Warn("failed to update ledger status to cancelled", zap.Error(err))
+	}
+	p.invoices.DeleteByRHash(cached.RHashHex)
 }
 
 // echoCompute preserves the deterministic unit-test setup. Production servers

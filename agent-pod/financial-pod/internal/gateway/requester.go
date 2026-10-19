@@ -83,7 +83,10 @@ func (r *RequesterSide) CallProvider(
 		zap.Int64("amount_msat", challenge.AmountMsat),
 	)
 
-	// 3. Check budget before committing to payment.
+	// 3. Check the invoice matches the challenge, then the budget, before committing to payment.
+	if err := r.verifyInvoice(ctx, challenge); err != nil {
+		return nil, err
+	}
 	if err := r.budget.CheckBudgetFor(ctx, challenge.AmountMsat); err != nil {
 		return nil, fmt.Errorf("requester: budget check: %w", err)
 	}
@@ -155,6 +158,20 @@ func (r *RequesterSide) CallProvider(
 		zap.Int64("amount_msat", challenge.AmountMsat),
 	)
 	return result, nil
+}
+
+// verifyInvoice rejects a challenge whose BOLT11 invoice pays a different amount
+// or hash than the challenge claims; the budget check trusts challenge.AmountMsat.
+func (r *RequesterSide) verifyInvoice(ctx context.Context, challenge *pb.PaymentRequired) error {
+	amountMSat, hashHex, err := r.lnd.DecodePayReq(ctx, challenge.Invoice)
+	if err != nil {
+		return fmt.Errorf("requester: decode invoice: %w", err)
+	}
+	if amountMSat != challenge.AmountMsat || hashHex != challenge.PaymentHash {
+		return fmt.Errorf("requester: invoice (%d msat, hash %s) does not match challenge (%d msat, hash %s)",
+			amountMSat, shortStr(hashHex, 12), challenge.AmountMsat, shortStr(challenge.PaymentHash, 12))
+	}
+	return nil
 }
 
 // sendUnauthenticated calls CallService without auth credentials and expects

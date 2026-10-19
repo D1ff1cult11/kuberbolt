@@ -156,8 +156,7 @@ func (s *Server) l402Interceptor(
 	start := time.Now()
 	switch info.FullMethod {
 	case "/kuberbolt.v1.FinancialPodService/GetBudgetInfo",
-		"/kuberbolt.v1.FinancialPodService/GetChannelInfo",
-		"/kuberbolt.v1.FinancialPodService/PayHoldInvoice":
+		"/kuberbolt.v1.FinancialPodService/GetChannelInfo":
 		response, err := handler(ctx, req)
 		s.logRPC(info.FullMethod, start, err)
 		return response, err
@@ -227,19 +226,8 @@ func (s *Server) CallService(ctx context.Context, req *pb.CallServiceRequest) (*
 	return response, err
 }
 
-// PayHoldInvoice triggers an outgoing payment from this node's wallet.
-// Implements financialPodServiceServer.
-func (s *Server) PayHoldInvoice(ctx context.Context, req *pb.PayHoldInvoiceRequest) (*pb.PayHoldInvoiceResponse, error) {
-	preimage, err := s.lnd.SendPayment(ctx, req.Invoice, defaultPaymentTimeoutSec)
-	if err != nil {
-		return &pb.PayHoldInvoiceResponse{Success: false, Status: "failed"}, nil
-	}
-	return &pb.PayHoldInvoiceResponse{
-		Success:  true,
-		Status:   "settled",
-		Preimage: fmt.Sprintf("%x", preimage),
-	}, nil
-}
+// PayHoldInvoice is deliberately not implemented (the embedded Unimplemented server
+// answers it): it would pay any invoice for any caller, with no budget check.
 
 // GetBudgetInfo returns current budget counters.
 func (s *Server) GetBudgetInfo(_ context.Context, _ *pb.GetBudgetInfoRequest) (*pb.GetBudgetInfoResponse, error) {

@@ -156,6 +156,7 @@ type ClientInterface interface {
 	SettleInvoice(ctx context.Context, preimage []byte) error
 	CancelInvoice(ctx context.Context, paymentHash []byte) error
 	SendPayment(ctx context.Context, paymentRequest string, timeoutSec int32) ([]byte, error)
+	DecodePayReq(ctx context.Context, paymentRequest string) (amountMSat int64, paymentHashHex string, err error)
 	Close() error
 }
 
@@ -254,6 +255,15 @@ func (c *Client) SendPayment(ctx context.Context, paymentRequest string, timeout
 			return nil, fmt.Errorf("ln: payment failed: %s", update.FailureReason)
 		}
 	}
+}
+
+// DecodePayReq returns the amount and payment hash a BOLT11 invoice commits to.
+func (c *Client) DecodePayReq(ctx context.Context, paymentRequest string) (int64, string, error) {
+	resp, err := c.Lightning.DecodePayReq(ctx, &lnrpc.PayReqString{PayReq: paymentRequest})
+	if err != nil {
+		return 0, "", fmt.Errorf("ln: DecodePayReq: %w", err)
+	}
+	return resp.NumMsat, resp.PaymentHash, nil
 }
 
 // ListChannels returns all active channels on this node.

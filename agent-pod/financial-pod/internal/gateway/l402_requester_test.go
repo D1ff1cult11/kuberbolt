@@ -78,3 +78,24 @@ func TestL402RequesterFlow(t *testing.T) {
 		t.Errorf("expected daily spend 2000, got %d", requester.budget.GetDailySpent())
 	}
 }
+
+// The budget check trusts the challenge's amount, so an invoice for more must be refused.
+func TestVerifyInvoiceRejectsMismatch(t *testing.T) {
+	challenge := &pb.PaymentRequired{Invoice: "lnbc...", PaymentHash: "aa", AmountMsat: 2000}
+	cases := map[string]struct {
+		amount int64
+		hash   string
+		ok     bool
+	}{
+		"match":         {2000, "aa", true},
+		"higher amount": {2_000_000, "aa", false},
+		"other hash":    {2000, "bb", false},
+	}
+	for name, c := range cases {
+		mockLN := &MockLNClient{DecodePayReqFunc: func(context.Context, string) (int64, string, error) { return c.amount, c.hash, nil }}
+		r := newRequesterSide(mockLN, nil, nil, zap.NewNop())
+		if err := r.verifyInvoice(context.Background(), challenge); (err == nil) != c.ok {
+			t.Errorf("%s: verifyInvoice err = %v, want ok=%v", name, err, c.ok)
+		}
+	}
+}
