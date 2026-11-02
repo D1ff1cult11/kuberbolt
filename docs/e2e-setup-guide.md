@@ -2,6 +2,8 @@
 
 Two peers. Neither one is a server for the other.
 
+This guide is the first-time setup. To re-run an existing setup, follow [e2e-runbook.md](e2e-runbook.md).
+
 | Machine | Role | Runs |
 |---------|------|------|
 | **A** | Buyer (`client`) | LND (Alice) + Go financial pod + buyer brain (`agent-pod/brain/app/buyer_agent.py`) |
@@ -121,7 +123,7 @@ brain:
   url: "http://127.0.0.1:8001"      # where the pod calls the brain
   listen_host: 127.0.0.1
   listen_port: 8001
-  llm_model: gemini-2.0-flash
+  llm_model: gemini-3.8-flash          # must be a model your key can call; see the runbook pre-flight check
 lightning:
   network: regtest
   lnd_host: 127.0.0.1

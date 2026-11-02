@@ -92,12 +92,14 @@ def run_agent(prompt: str, tool_fns: list[Callable], model: str, api_key: str) -
     from langchain.agents import create_agent
     from langchain_google_genai import ChatGoogleGenerativeAI
 
-    llm = ChatGoogleGenerativeAI(model=model, google_api_key=api_key)
+    # REST, not the library's default gRPC: sync gRPC calls to Gemini were seen hanging indefinitely.
+    llm = ChatGoogleGenerativeAI(model=model, google_api_key=api_key, transport="rest")
     agent = create_agent(model=llm, tools=tool_fns, system_prompt=SYSTEM_PROMPT)
 
     print(f"Running agent with prompt: {prompt}")
-    result = agent.invoke({"messages": [{"role": "user", "content": prompt}]})
-    print(result["messages"][-1].text)
+    # Print each message (tool calls, tool results, final answer) as the agent produces it.
+    for state in agent.stream({"messages": [{"role": "user", "content": prompt}]}, stream_mode="values"):
+        state["messages"][-1].pretty_print()
 
 
 def main(argv: list[str]) -> int:
