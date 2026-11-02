@@ -80,13 +80,14 @@ func NewClient(ctx context.Context, cfg *Config, logger *zap.Logger) (*Client, e
 	macHex := hex.EncodeToString(macBytes)
 
 	// 3. Dial LND with TLS transport + per-RPC macaroon credential.
+	//    Non-blocking: a bad port or certificate surfaces as the GetInfo error
+	//    below instead of the dial waiting forever with no log.
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.GRPCPort)
 	conn, err := grpc.DialContext(
 		ctx,
 		addr,
 		grpc.WithTransportCredentials(tlsCreds),
 		grpc.WithPerRPCCredentials(macaroonCred{hexMacaroon: macHex}),
-		grpc.WithBlock(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("ln: dial %s: %w", addr, err)
